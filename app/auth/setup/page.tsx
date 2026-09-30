@@ -21,6 +21,19 @@ export default function SetupPage() {
                 router.push('/auth');
                 return;
             }
+
+            // Load existing profile data if any
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, avatar_url')
+                .eq('id', data.session.user.id)
+                .single();
+
+            if (profileData) {
+                setFirstName(profileData.first_name || '');
+                setLastName(profileData.last_name || '');
+            }
+
             setUser(data.session.user);
             setLoading(false);
         };
@@ -90,10 +103,6 @@ export default function SetupPage() {
         }
     };
 
-    const handleSkip = () => {
-        router.push('/');
-    };
-
     if (loading) return <p>Loading...</p>;
 
     return (
@@ -122,7 +131,7 @@ export default function SetupPage() {
                 }}
             >
                 <h2>Complete Your Profile</h2>
-                <p>Welcome! Let's set up your profile to get started.</p>
+                <p>Let's set up your profile to get started.</p>
 
                 <div style={{ marginTop: '1.5rem' }}>
                     <label style={{ display: 'block', marginBottom: '1rem' }}>
@@ -184,22 +193,6 @@ export default function SetupPage() {
                         }}
                     >
                         {saving || uploading ? 'Saving...' : 'Complete'}
-                    </button>
-                    <button
-                        onClick={handleSkip}
-                        disabled={saving || uploading}
-                        style={{
-                            flex: 1,
-                            padding: '10px',
-                            background: '#6c757d',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: saving || uploading ? 'not-allowed' : 'pointer',
-                            opacity: saving || uploading ? 0.5 : 1,
-                        }}
-                    >
-                        Skip for Now
                     </button>
                 </div>
             </div>

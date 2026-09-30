@@ -1,61 +1,81 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
-export default function AuthPage() {
+interface TVShow {
+    id: number;
+    title: string;
+    genre: string;
+    created_at: string;
+}
+
+interface Profile {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+}
+
+export default function Home() {
     const router = useRouter();
-    const [loading, setLoading] = useState(false);
-    const [loggedIn, setLoggedIn] = useState(false);
+    const [tvshows, setTVShows] = useState<TVShow[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
-        // Check if already logged in
-        const checkAuth = async () => {
+        const checkAuthAndProfile = async () => {
             const { data } = await supabase.auth.getSession();
-            if (data.session) {
-                setLoggedIn(true);
-                router.push('/profile');
+
+            if (!data.session) {
+                router.push('/auth');
+                return;
             }
+
+            setIsLoggedIn(true);
+
+            // Check if profile is complete
+            const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, avatar_url')
+                .eq('id', data.session.user.id)
+                .single();
+
+            if (profileData) {
+                // Check if profile is incomplete (all fields are NULL)
+                const isProfileIncomplete =
+                    !profileData.first_name &&
+                    !profileData.last_name &&
+                    !profileData.avatar_url;
+
+                if (isProfileIncomplete) {
+                    router.push('/auth/setup');
+                    return;
+                }
+            }
+
+            // Fetch TV shows
+            const { data: shows } = await supabase
+                .from('tvshows')
+                .select('*');
+
+            setTVShows(shows || []);
+            setLoading(false);
         };
-        checkAuth();
+
+        checkAuthAndProfile();
     }, [router]);
 
-    const handleGoogleSignIn = async () => {
-        setLoading(true);
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
-            },
-        });
-
-        if (error) {
-            console.error('Sign in error:', error);
-            setLoading(false);
-        }
-    };
-
-    if (loggedIn) {
-        return <p>Redirecting...</p>;
-    }
+    if (!isLoggedIn) return <p>Redirecting...</p>;
+    if (loading) return <p>Loading...</p>;
 
     return (
-        <main style={{ padding: '2rem', textAlign: 'center' }}>
-            <h1>Welcome to The Funny Bone</h1>
-            <p>Sign in with Google to continue</p>
-            <button
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                style={{
-                    padding: '10px 20px',
-                    fontSize: '16px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.5 : 1,
-                }}
-            >
-                {loading ? 'Signing in...' : 'Sign in with Google'}
-            </button>
-        </main>
-    );
-}
+        <main style={{ padding: '2rem' }}>
+            <h1>TV Shows from Supabase</h1>
+            {tvshows.length === 0 ? (
+                <p>No TV shows found.</p>
+            ) : (
+                <ul>
+                    {tvshows.map((show) => (
+                        <li key={show.id}>
+                            <strong>{show.title}</strong> -
