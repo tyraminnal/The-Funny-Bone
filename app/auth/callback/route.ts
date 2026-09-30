@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
 
     if (code) {
-        const cookieStore = await cookies();  // Add await here
+        const cookieStore = await cookies();
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,5 +29,5 @@ export async function GET(request: NextRequest) {
         await supabase.auth.exchangeCodeForSession(code);
     }
 
-    return NextResponse.redirect(new URL('/profile', request.url));
+    return NextResponse.redirect(new URL('/auth/setup', request.url));
 }
