@@ -3,14 +3,16 @@
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useProfileCheck } from '@/lib/useProfileCheck';
 
 export default function AuthPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [loggedIn, setLoggedIn] = useState(false);
 
+    useProfileCheck(); // This checks and redirects if needed
+
     useEffect(() => {
-        // Check if already logged in
         const checkAuth = async () => {
             const { data } = await supabase.auth.getSession();
             if (data.session) {

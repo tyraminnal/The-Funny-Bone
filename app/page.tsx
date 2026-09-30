@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useProfileCheck } from '@/lib/useProfileCheck';
 
 interface TVShow {
     id: number;
@@ -16,6 +17,8 @@ export default function Home() {
     const [tvshows, setTVShows] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    useProfileCheck(); // This checks and redirects if needed
 
     useEffect(() => {
         const checkAuth = async () => {
