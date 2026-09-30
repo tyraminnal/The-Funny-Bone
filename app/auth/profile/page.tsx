@@ -1,103 +1,135 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Profile {
-    first_name: string;
-    last_name: string;
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
 }
 
 export default function ProfilePage() {
-    const [user, setUser] = useState<any>(null);
-    const [profile, setProfile] = useState<Profile>({
-        first_name: '',
-        last_name: '',
-    });
-    const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
-        const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
+        const loadProfile = async () => {
+            // Check authentication
+            const { data: authData } = await supabase.auth.getSession();
+            if (!authData.session) {
                 router.push('/auth');
                 return;
             }
-            setUser(user);
 
-            // Fetch profile
-            const { data } = await supabase
+            setUser(authData.session.user);
+
+            // Load user profile
+            const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', authData.session.user.id)
                 .single();
 
             if (data) {
-                setProfile({
-                    first_name: data.first_name || '',
-                    last_name: data.last_name || '',
-                });
+                setProfile(data);
+                setFirstName(data.first_name || '');
+                setLastName(data.last_name || '');
             }
             setLoading(false);
         };
 
-        checkUser();
-    }, []);
+        loadProfile();
+    }, [router]);
 
-    const handleUpdateProfile = async () => {
+    const handleSave = async () => {
         if (!user) return;
+        setSaving(true);
 
         const { error } = await supabase
             .from('profiles')
             .update({
-                first_name: profile.first_name,
-                last_name: profile.last_name,
+                first_name: firstName,
+                last_name: lastName,
+                updated_at: new Date().toISOString(),
             })
             .eq('id', user.id);
 
-        if (!error) {
-            alert('Profile updated!');
+        if (error) {
+            console.error('Error updating profile:', error);
+        } else {
+            alert('Profile updated successfully!');
         }
+        setSaving(false);
     };
 
-    const handleLogout = async () => {
+    const handleSignOut = async () => {
         await supabase.auth.signOut();
         router.push('/auth');
     };
 
     if (loading) return <p>Loading...</p>;
-    if (!user) return <p>Not authenticated</p>;
 
     return (
         <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-            <h1>Profile</h1>
-            <p>Email: {user.email}</p>
+            <h1>Your Profile</h1>
+            {user && <p>Email: {user.email}</p>}
 
             <div style={{ marginTop: '2rem' }}>
-                <h2>Edit Profile</h2>
-                <input
-                    type="text"
-                    placeholder="First Name"
-                    value={profile.first_name}
-                    onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                    style={{ display: 'block', marginBottom: '1rem', padding: '0.5rem', width: '100%' }}
-                />
-                <input
-                    type="text"
-                    placeholder="Last Name"
-                    value={profile.last_name}
-                    onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                    style={{ display: 'block', marginBottom: '1rem', padding: '0.5rem', width: '100%' }}
-                />
-                <button onClick={handleUpdateProfile} style={{ padding: '0.5rem 1rem' }}>
-                    Save Profile
+                <label>
+                    First Name:
+                    <input
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px' }}
+                    />
+                </label>
+
+                <label style={{ display: 'block', marginTop: '1rem' }}>
+                    Last Name:
+                    <input
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px' }}
+                    />
+                </label>
+
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{
+                        marginTop: '1.5rem',
+                        padding: '10px 20px',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        opacity: saving ? 0.5 : 1,
+                    }}
+                >
+                    {saving ? 'Saving...' : 'Save Profile'}
                 </button>
             </div>
 
-            <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', marginTop: '2rem' }}>
-                Logout
+            <button
+                onClick={handleSignOut}
+                style={{
+                    marginTop: '1rem',
+                    marginLeft: '1rem',
+                    padding: '10px 20px',
+                    background: '#ff4444',
+                    color: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                }}
+            >
+                Sign Out
             </button>
         </main>
     );
