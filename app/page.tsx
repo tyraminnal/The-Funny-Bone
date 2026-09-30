@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useProfileCheck } from '@/lib/useProfileCheck';
 
@@ -14,11 +15,11 @@ interface TVShow {
 
 export default function Home() {
     const router = useRouter();
+    useProfileCheck();
+
     const [tvshows, setTVShows] = useState<TVShow[]>([]);
     const [loading, setLoading] = useState(true);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-    useProfileCheck(); // This checks and redirects if needed
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -31,7 +32,6 @@ export default function Home() {
 
             setIsLoggedIn(true);
 
-            // Fetch TV shows
             const { data: shows } = await supabase
                 .from('tvshows')
                 .select('*');
@@ -48,7 +48,13 @@ export default function Home() {
 
     return (
         <main style={{ padding: '2rem' }}>
-            <h1>TV Shows from Supabase</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h1>TV Shows from Supabase</h1>
+                <Link href="/profile" style={{ padding: '10px 20px', background: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+                    Edit Profile
+                </Link>
+            </div>
+
             {tvshows.length === 0 ? (
                 <p>No TV shows found.</p>
             ) : (

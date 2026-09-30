@@ -3,11 +3,23 @@
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useProfileCheck } from '@/lib/useProfileCheck';
 
-export default function SetupPage() {
+interface Profile {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+}
+
+export default function ProfilePage() {
     const router = useRouter();
+    useProfileCheck();
+
+    const [profile, setProfile] = useState<Profile | null>(null);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -15,29 +27,31 @@ export default function SetupPage() {
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (!data.session) {
+        const loadProfile = async () => {
+            const { data: authData } = await supabase.auth.getSession();
+            if (!authData.session) {
                 router.push('/auth');
                 return;
             }
 
-            // Load existing profile data if any
-            const { data: profileData } = await supabase
+            setUser(authData.session.user);
+
+            const { data, error } = await supabase
                 .from('profiles')
-                .select('first_name, last_name, avatar_url')
-                .eq('id', data.session.user.id)
+                .select('*')
+                .eq('id', authData.session.user.id)
                 .single();
 
-            if (profileData) {
-                setFirstName(profileData.first_name || '');
-                setLastName(profileData.last_name || '');
+            if (data) {
+                setProfile(data);
+                setFirstName(data.first_name || '');
+                setLastName(data.last_name || '');
+                setAvatarUrl(data.avatar_url || '');
             }
-
-            setUser(data.session.user);
             setLoading(false);
         };
-        checkAuth();
+
+        loadProfile();
     }, [router]);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +61,7 @@ export default function SetupPage() {
     };
 
     const uploadAvatar = async (): Promise<string | null> => {
-        if (!avatarFile || !user) return null;
+        if (!avatarFile || !user) return avatarUrl;
 
         setUploading(true);
         try {
@@ -61,6 +75,7 @@ export default function SetupPage() {
 
             if (uploadError) {
                 console.error('Upload error:', uploadError);
+                alert(`Upload failed: ${uploadError.message}`);
                 setUploading(false);
                 return null;
             }
@@ -70,18 +85,22 @@ export default function SetupPage() {
             return data.publicUrl;
         } catch (error) {
             console.error('Error uploading avatar:', error);
+            alert(`Error: ${error}`);
             setUploading(false);
             return null;
         }
     };
 
-    const handleComplete = async () => {
+    const handleSave = async () => {
         if (!user) return;
         setSaving(true);
 
-        let avatarUrl = null;
+        let newAvatarUrl = avatarUrl;
         if (avatarFile) {
-            avatarUrl = await uploadAvatar();
+            const uploadedUrl = await uploadAvatar();
+            if (uploadedUrl) {
+                newAvatarUrl = uploadedUrl;
+            }
         }
 
         const { error } = await supabase
@@ -89,113 +108,89 @@ export default function SetupPage() {
             .update({
                 first_name: firstName || null,
                 last_name: lastName || null,
-                avatar_url: avatarUrl,
+                avatar_url: newAvatarUrl,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', user.id);
 
         if (error) {
             console.error('Error updating profile:', error);
-            alert('Error saving profile');
-            setSaving(false);
+            alert('Error updating profile');
         } else {
-            router.push('/');
+            alert('Profile updated successfully!');
+            setAvatarUrl(newAvatarUrl);
+            setAvatarFile(null);
         }
+        setSaving(false);
+    };
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        router.push('/auth');
     };
 
     if (loading) return <p>Loading...</p>;
 
     return (
-        <div
-            style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1000,
-            }}
-        >
-            <div
-                style={{
-                    background: 'white',
-                    borderRadius: '8px',
-                    padding: '2rem',
-                    maxWidth: '500px',
-                    width: '90%',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                }}
-            >
-                <h2>Complete Your Profile</h2>
-                <p>Let's set up your profile to get started.</p>
+        <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
+            <h1>Your Profile</h1>
+            {user && <p>Email: {user.email}</p>}
 
-                <div style={{ marginTop: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '1rem' }}>
-                        First Name (optional):
-                        <input
-                            type="text"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                            style={{
-                                display: 'block',
-                                marginTop: '0.5rem',
-                                padding: '8px',
-                                width: '100%',
-                                boxSizing: 'border-box',
-                            }}
-                        />
-                    </label>
+            <div style={{ marginTop: '2rem' }}>
+                <label style={{ display: 'block', marginBottom: '1rem' }}>
+                    First Name:
+                    <input
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px', width: '100%', boxSizing: 'border-box' }}
+                    />
+                </label>
 
-                    <label style={{ display: 'block', marginBottom: '1rem' }}>
-                        Last Name (optional):
-                        <input
-                            type="text"
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                            style={{
-                                display: 'block',
-                                marginTop: '0.5rem',
-                                padding: '8px',
-                                width: '100%',
-                                boxSizing: 'border-box',
-                            }}
-                        />
-                    </label>
+                <label style={{ display: 'block', marginBottom: '1rem' }}>
+                    Last Name:
+                    <input
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px', width: '100%', boxSizing: 'border-box' }}
+                    />
+                </label>
 
-                    <label style={{ display: 'block', marginBottom: '1rem' }}>
-                        Profile Picture (optional):
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleAvatarChange}
-                            style={{ display: 'block', marginTop: '0.5rem' }}
-                        />
-                    </label>
-                </div>
+                <label style={{ display: 'block', marginBottom: '1rem' }}>
+                    Avatar:
+                    {avatarUrl && (
+                        <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                            <img
+                                src={avatarUrl}
+                                alt="Avatar"
+                                style={{ maxWidth: '150px', borderRadius: '8px' }}
+                            />
+                        </div>
+                    )}
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        style={{ display: 'block', marginTop: '0.5rem' }}
+                    />
+                </label>
 
-                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-                    <button
-                        onClick={handleComplete}
-                        disabled={saving || uploading}
-                        style={{
-                            flex: 1,
-                            padding: '10px',
-                            background: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: saving || uploading ? 'not-allowed' : 'pointer',
-                            opacity: saving || uploading ? 0.5 : 1,
-                        }}
-                    >
-                        {saving || uploading ? 'Saving...' : 'Complete'}
-                    </button>
-                </div>
+                <button
+                    onClick={handleSave}
+                    disabled={saving || uploading}
+                    style={{ marginTop: '1.5rem', padding: '10px 20px', cursor: saving || uploading ? 'not-allowed' : 'pointer', opacity: saving || uploading ? 0.5 : 1 }}
+                >
+                    {saving || uploading ? 'Saving...' : 'Save Profile'}
+                </button>
             </div>
-        </div>
+
+            <button
+                onClick={handleSignOut}
+                style={{ marginTop: '1rem', marginLeft: '1rem', padding: '10px 20px', background: '#ff4444', color: 'white', border: 'none', cursor: 'pointer' }}
+            >
+                Sign Out
+            </button>
+        </main>
     );
 }
