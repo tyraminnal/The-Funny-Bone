@@ -3,7 +3,6 @@
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useProfileCheck } from '@/lib/useProfileCheck';
 
 interface Profile {
     id: string;
@@ -12,80 +11,82 @@ interface Profile {
     avatar_url: string | null;
 }
 
-export default function ProfilePage() {
+export default function SetupPage() {
     const router = useRouter();
-    useProfileCheck();
-
-    const [profile, setProfile] = useState<Profile | null>(null);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [avatarUrl, setAvatarUrl] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        const loadProfile = async () => {
+        const checkAuth = async () => {
             const { data: authData } = await supabase.auth.getSession();
             if (!authData.session) {
                 router.push('/auth');
                 return;
             }
-
             setUser(authData.session.user);
-
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authData.session.user.id)
-                .single();
-
-            if (data) {
-                setProfile(data);
-                setFirstName(data.first_name || '');
-                setLastName(data.last_name || '');
-                setAvatarUrl(data.avatar_url || '');
-            }
             setLoading(false);
         };
 
-        loadProfile();
+        checkAuth();
     }, [router]);
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setAvatarFile(e.target.files[0]);
+            const file = e.target.files[0];
+            setAvatarFile(file);
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
         }
     };
 
     const uploadAvatar = async (): Promise<string | null> => {
-        if (!avatarFile || !user) return avatarUrl;
+        if (!avatarFile || !user) return null;
 
         setUploading(true);
+        setError('');
         try {
             const fileExt = avatarFile.name.split('.').pop();
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
             const filePath = `avatars/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
+            console.log('Starting upload to:', filePath);
+
+            const { data, error: uploadError } = await supabase.storage
                 .from('profiles')
                 .upload(filePath, avatarFile);
 
             if (uploadError) {
                 console.error('Upload error:', uploadError);
-                alert(`Upload failed: ${uploadError.message}`);
+                setError(`Upload failed: ${uploadError.message}`);
                 setUploading(false);
                 return null;
             }
 
-            const { data } = supabase.storage.from('profiles').getPublicUrl(filePath);
+            console.log('Upload successful:', data);
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('profiles')
+                .getPublicUrl(filePath);
+
+            console.log('Public URL:', urlData.publicUrl);
             setUploading(false);
-            return data.publicUrl;
-        } catch (error) {
-            console.error('Error uploading avatar:', error);
-            alert(`Error: ${error}`);
+            return urlData.publicUrl;
+        } catch (err: any) {
+            console.error('Error uploading avatar:', err);
+            setError(`Error: ${err.message}`);
             setUploading(false);
             return null;
         }
@@ -94,47 +95,62 @@ export default function ProfilePage() {
     const handleSave = async () => {
         if (!user) return;
         setSaving(true);
+        setError('');
 
-        let newAvatarUrl = avatarUrl;
-        if (avatarFile) {
-            const uploadedUrl = await uploadAvatar();
-            if (uploadedUrl) {
-                newAvatarUrl = uploadedUrl;
+        try {
+            let avatarUrl = null;
+            if (avatarFile) {
+                avatarUrl = await uploadAvatar();
+                if (!avatarUrl && avatarFile) {
+                    setSaving(false);
+                    return; // Upload failed, don't save profile
+                }
             }
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    first_name: firstName || null,
+                    last_name: lastName || null,
+                    avatar_url: avatarUrl,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', user.id);
+
+            if (updateError) {
+                console.error('Error updating profile:', updateError);
+                setError('Error saving profile');
+                setSaving(false);
+                return;
+            }
+
+            console.log('Profile saved successfully');
+            router.push('/');
+        } catch (err: any) {
+            console.error('Save error:', err);
+            setError(`Error: ${err.message}`);
+            setSaving(false);
         }
-
-        const { error } = await supabase
-            .from('profiles')
-            .update({
-                first_name: firstName || null,
-                last_name: lastName || null,
-                avatar_url: newAvatarUrl,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', user.id);
-
-        if (error) {
-            console.error('Error updating profile:', error);
-            alert('Error updating profile');
-        } else {
-            alert('Profile updated successfully!');
-            setAvatarUrl(newAvatarUrl);
-            setAvatarFile(null);
-        }
-        setSaving(false);
-    };
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/auth');
     };
 
     if (loading) return <p>Loading...</p>;
 
     return (
         <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-            <h1>Your Profile</h1>
+            <h1>Complete Your Profile</h1>
             {user && <p>Email: {user.email}</p>}
+
+            {error && (
+                <div style={{
+                    color: 'red',
+                    marginBottom: '1rem',
+                    padding: '1rem',
+                    backgroundColor: '#ffe0e0',
+                    borderRadius: '4px'
+                }}>
+                    {error}
+                </div>
+            )}
 
             <div style={{ marginTop: '2rem' }}>
                 <label style={{ display: 'block', marginBottom: '1rem' }}>
@@ -158,12 +174,12 @@ export default function ProfilePage() {
                 </label>
 
                 <label style={{ display: 'block', marginBottom: '1rem' }}>
-                    Avatar:
-                    {avatarUrl && (
+                    Avatar (Optional):
+                    {avatarPreview && (
                         <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
                             <img
-                                src={avatarUrl}
-                                alt="Avatar"
+                                src={avatarPreview}
+                                alt="Avatar preview"
                                 style={{ maxWidth: '150px', borderRadius: '8px' }}
                             />
                         </div>
@@ -172,6 +188,7 @@ export default function ProfilePage() {
                         type="file"
                         accept="image/*"
                         onChange={handleAvatarChange}
+                        disabled={uploading}
                         style={{ display: 'block', marginTop: '0.5rem' }}
                     />
                 </label>
@@ -179,18 +196,20 @@ export default function ProfilePage() {
                 <button
                     onClick={handleSave}
                     disabled={saving || uploading}
-                    style={{ marginTop: '1.5rem', padding: '10px 20px', cursor: saving || uploading ? 'not-allowed' : 'pointer', opacity: saving || uploading ? 0.5 : 1 }}
+                    style={{
+                        marginTop: '1.5rem',
+                        padding: '10px 20px',
+                        cursor: saving || uploading ? 'not-allowed' : 'pointer',
+                        opacity: saving || uploading ? 0.5 : 1,
+                        backgroundColor: '#0066cc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px'
+                    }}
                 >
-                    {saving || uploading ? 'Saving...' : 'Save Profile'}
+                    {saving || uploading ? 'Saving...' : 'Continue'}
                 </button>
             </div>
-
-            <button
-                onClick={handleSignOut}
-                style={{ marginTop: '1rem', marginLeft: '1rem', padding: '10px 20px', background: '#ff4444', color: 'white', border: 'none', cursor: 'pointer' }}
-            >
-                Sign Out
-            </button>
         </main>
     );
 }
