@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'The Funny Bone',
-  description: 'Welcome to The Funny Bone',
+  description: 'Upload a photo, get AI captions, vote on the funniest.',
 };
 
 export default function RootLayout({

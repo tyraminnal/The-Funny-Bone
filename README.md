@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Funny Bone
 
-## Getting Started
+Upload a photo, get AI-written captions in four voices, and vote on the funniest. Built with Next.js, Supabase, and Gemini.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Daily theme.** A new prompt every day (Underground, Mystery Meal, Butler at 2am...) gives people a reason to come back and post.
+- **AI captions.** Each upload gets four captions from Gemini: Deadpan, Chronically Online, Midwest Transplant, and Real New Yorker. The exact prompt is saved with every post.
+- **Voting.** Signed-in users upvote or downvote captions. One vote per user per caption, and you can't vote on your own post.
+- **Feed.** Sort by Hot, New, Top, or today's theme. The top caption from the last 24 hours shows as Caption of the Day.
+- **Sharing.** Every post has its own page at `/post/<id>`.
+
+## Setup
+
+1. Run `supabase/migrations/20261007_captions_and_votes.sql` in the Supabase SQL Editor.
+2. Add these environment variables to `.env.local` and to Vercel:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...   # server only, never expose to the browser
+GEMINI_API_KEY=...              # from aistudio.google.com
+GEMINI_MODEL=gemini-3.5-flash   # optional
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. `npm install && npm run dev`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Security
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Row level security is on for every table:
 
-## Learn More
+| Table | Who can read | Who can write |
+| --- | --- | --- |
+| `profiles` | Only the owner | Only the owner |
+| `tvshows` | Signed-in users | Nobody |
+| `generations`, `captions` | Signed-in users | Only the server, after the AI responds |
+| `caption_votes` | Only the voter | Only the voter, never on their own post |
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vote totals on `captions` are kept up to date by a database trigger, so users never need permission to edit captions.
