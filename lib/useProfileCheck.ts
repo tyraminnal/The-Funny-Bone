@@ -16,7 +16,8 @@ export function useProfileCheck() {
             const { data } = await supabase.auth.getSession();
 
             if (!data.session) {
-                router.push('/auth');
+                // The home page has its own logged-out view.
+                if (pathname !== '/') router.push('/auth');
                 return;
             }
 

@@ -15,7 +15,7 @@ export default function PostPage() {
     const user = useRequireUser();
     const [posts, setPosts] = useState<Generation[]>([]);
     const [loading, setLoading] = useState(true);
-    const { myVotes, loadVotes, vote, voteError } = useVotes(user?.id ?? null, setPosts);
+    const { myVotes, loadVotes, vote, voteError, savedCaptionId } = useVotes(user?.id ?? null, setPosts);
 
     useEffect(() => {
         if (!user) return;
@@ -45,7 +45,7 @@ export default function PostPage() {
                 <p>Loading...</p>
             ) : posts[0] ? (
                 <div className="mx-auto max-w-[560px]">
-                    <PostCard post={posts[0]} userId={user.id} myVotes={myVotes} onVote={vote} />
+                    <PostCard post={posts[0]} userId={user.id} myVotes={myVotes} savedCaptionId={savedCaptionId} onVote={vote} />
                 </div>
             ) : (
                 <p>This pic doesn’t exist (or got deleted).</p>

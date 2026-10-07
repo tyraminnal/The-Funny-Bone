@@ -18,13 +18,6 @@ export const THEMES: Theme[] = [
     { slug: 'weather-report', title: 'Weather Report', blurb: 'NYC weather doing whatever it wants today.' },
 ];
 
-export const CAPTION_STYLES = [
-    { name: 'Deadpan', guide: 'dry, understated, said with a completely straight face' },
-    { name: 'Chronically Online', guide: 'Gen Z internet humor, meme formats, current slang, lowercase energy' },
-    { name: 'Midwest Transplant', guide: 'a polite Midwesterner newly in NYC, culture shock, comparisons to home' },
-    { name: 'Real New Yorker', guide: 'a jaded lifelong New Yorker who has seen it all and is unimpressed' },
-] as const;
-
 // Days are counted in New York time so the theme flips at local midnight.
 export function nyDayNumber(date: Date = new Date()): number {
     const ymd = new Intl.DateTimeFormat('en-CA', {

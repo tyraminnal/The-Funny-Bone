@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSyncExternalStore } from 'react';
+import { signInWithGoogle } from '@/lib/signIn';
 import { supabase } from '@/lib/supabase';
 import { todaysTheme } from '@/lib/themes';
 
@@ -61,7 +62,7 @@ export default function Shell({ children, signedIn = true }: { children: React.R
                     {signedIn ? (
                         <button onClick={signOut} className="ms-button">Sign Out</button>
                     ) : (
-                        <span>Columbia’s #1 caption site</span>
+                        <button onClick={signInWithGoogle} className="ms-button">Sign In</button>
                     )}
                 </div>
             </header>
@@ -78,7 +79,7 @@ export default function Shell({ children, signedIn = true }: { children: React.R
 
             <div className="ms-marquee" aria-label={`Today's theme: ${theme.title}`}>
                 <span>
-                    ★ Today’s theme: {theme.title.toUpperCase()} ★ {theme.blurb} ★ Upload a pic, get 4 AI captions, vote for the funniest ★
+                    ★ Today’s theme: {theme.title.toUpperCase()} ★ {theme.blurb} ★ Upload a pic, pick a voice, get 4 AI captions, vote for the funniest ★
                 </span>
             </div>
 

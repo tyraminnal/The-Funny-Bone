@@ -60,15 +60,15 @@ export default function AuthPage() {
                 <div className="ms-col">
                     <section>
                         <h1 className="ms-big-title">Welcome to The Funny Bone!</h1>
-                        <p className="ms-title">Upload a pic. Get 4 AI captions. Vote for the funniest.</p>
+                        <p className="ms-title">Upload a pic. Pick a voice. Get 4 AI captions. Vote for the funniest.</p>
                     </section>
                     <Box title="Why join?">
                         <table className="ms-table">
                             <tbody>
                                 <tr><th>Daily theme</th><td>A new theme every day, from the subway to Butler at 2am</td></tr>
-                                <tr><th>AI captions</th><td>Deadpan, Chronically Online, Midwest Transplant, and Real New Yorker</td></tr>
+                                <tr><th>AI captions</th><td>Pick any voice you want and get 4 captions right on your pic</td></tr>
                                 <tr><th>Voting</th><td>LOL or meh. The funniest becomes Caption of the Day</td></tr>
-                                <tr><th>Top 8</th><td>The funniest pics on the site, updated live</td></tr>
+                                <tr><th>Ranking</th><td>Earn points and climb the Funniest Ranking</td></tr>
                             </tbody>
                         </table>
                     </Box>

@@ -6,20 +6,28 @@ import { themeBySlug } from '@/lib/themes';
 import { timeAgo } from '@/lib/time';
 import type { Caption, Generation, VoteValue } from '@/lib/types';
 import Box from './Box';
+import MemeImage from './MemeImage';
 
 interface Props {
     post: Generation;
     userId: string | null;
     myVotes: Record<string, VoteValue>;
+    savedCaptionId: string | null;
     onVote: (caption: Caption, value: VoteValue) => void;
 }
 
-export default function PostCard({ post, userId, myVotes, onVote }: Props) {
+export default function PostCard({ post, userId, myVotes, savedCaptionId, onVote }: Props) {
+    const [index, setIndex] = useState(0);
     const [copied, setCopied] = useState(false);
-    const isMine = post.user_id === userId;
+
+    // Keep captions in the order they were written so they don't jump around while people vote.
+    const captions = [...post.captions].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+    const leader = captions.reduce<Caption | null>((best, c) => (c.score > (best?.score ?? 0) ? c : best), null);
+    const caption = captions[index];
     const theme = themeBySlug(post.theme);
-    const captions = [...post.captions].sort((a, b) => b.score - a.score || a.created_at.localeCompare(b.created_at));
-    const leaderId = captions[0]?.score > 0 ? captions[0].id : null;
+    const mine = caption ? myVotes[caption.id] : undefined;
+
+    const step = (delta: number) => setIndex((i) => (i + delta + captions.length) % captions.length);
 
     const copyLink = async () => {
         await navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
@@ -30,55 +38,40 @@ export default function PostCard({ post, userId, myVotes, onVote }: Props) {
     return (
         <Box title={
             <span className="flex justify-between gap-2">
-                <span>{isMine ? 'Your pic' : 'New pic'} {theme && `· ${theme.title}`}</span>
+                <span>{post.user_id === userId ? 'Your pic' : 'New pic'} {theme && `· ${theme.title}`}</span>
                 <span className="font-normal">{timeAgo(post.created_at)}</span>
             </span>
         }>
-            <Link href={`/post/${post.id}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={post.image_url} alt="Uploaded photo" className="ms-post-photo" />
-            </Link>
+            <MemeImage src={post.image_url} alt="Uploaded photo" bottomText={caption?.text} />
 
-            {post.user_context && <p className="ms-muted mt-2 italic">“{post.user_context}”</p>}
+            {captions.length > 1 && (
+                <div className="ms-pager">
+                    <button className="ms-button" onClick={() => step(-1)}>◀ Prev</button>
+                    <span>
+                        Caption {index + 1} of {captions.length}
+                        {caption && leader?.id === caption.id && ' 👑'}
+                    </span>
+                    <button className="ms-button" onClick={() => step(1)}>Next ▶</button>
+                </div>
+            )}
 
-            <p className="ms-title mt-3">AI Captions ({captions.length})</p>
-            {captions.map((caption) => {
-                const mine = myVotes[caption.id];
-                const blockedTitle = isMine ? 'You can’t vote on your own pic' : undefined;
-                return (
-                    <div key={caption.id} className="ms-caption">
-                        <div className="ms-caption-text">
-                            {caption.id === leaderId && <span title="Top caption">👑 </span>}
-                            {caption.text}
-                            <span className="ms-caption-style">{caption.style}</span>
-                        </div>
-                        <div className="ms-votes">
-                            <button
-                                className="ms-vote"
-                                data-on={mine === 1 ? 'up' : undefined}
-                                disabled={isMine}
-                                title={blockedTitle}
-                                onClick={() => onVote(caption, 1)}
-                            >
-                                ▲ LOL
-                            </button>
-                            <span className="ms-score">{caption.score > 0 ? `+${caption.score}` : caption.score}</span>
-                            <button
-                                className="ms-vote"
-                                data-on={mine === -1 ? 'down' : undefined}
-                                disabled={isMine}
-                                title={blockedTitle}
-                                onClick={() => onVote(caption, -1)}
-                            >
-                                meh ▼
-                            </button>
-                        </div>
-                    </div>
-                );
-            })}
+            {caption && (
+                <div className="ms-votebar">
+                    <button className="ms-vote" data-on={mine === 1 ? 'up' : undefined} onClick={() => onVote(caption, 1)}>
+                        LOL ▲
+                    </button>
+                    <span className="ms-score">{caption.score > 0 ? `+${caption.score}` : caption.score}</span>
+                    <button className="ms-vote" data-on={mine === -1 ? 'down' : undefined} onClick={() => onVote(caption, -1)}>
+                        meh ▼
+                    </button>
+                    {savedCaptionId === caption.id && <span className="ms-saved">Vote saved ✓</span>}
+                </div>
+            )}
 
-            <p className="ms-muted mt-3 flex items-center justify-between">
-                <span>{isMine ? 'Share it so people vote!' : 'Vote for the funniest one'}</span>
+            {post.user_context && <p className="ms-muted mt-1.5 italic">“{post.user_context}”</p>}
+
+            <p className="ms-muted mt-2 flex items-center justify-between">
+                <Link href={`/post/${post.id}`}>Permalink</Link>
                 <button onClick={copyLink} className="ms-button">{copied ? 'Copied!' : 'Copy Link'}</button>
             </p>
         </Box>

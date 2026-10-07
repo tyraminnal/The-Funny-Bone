@@ -177,7 +177,7 @@ export default function ProfilePage() {
 
                 <div className="flex flex-wrap gap-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={avatarPreview || avatarUrl || '/file.svg'} alt="Avatar" className="ms-avatar" />
+                    <img src={avatarPreview || avatarUrl || '/default-avatar.svg'} alt="Avatar" className="ms-avatar" />
                     <div className="min-w-[220px] flex-1">
                     <label className="mb-3 block font-bold">
                         First Name:

@@ -33,6 +33,17 @@ export default function SetupPage() {
                 return;
             }
             setUser(authData.session.user);
+
+            // Returning users who already set up a profile go straight home.
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, avatar_url')
+                .eq('id', authData.session.user.id)
+                .maybeSingle();
+            if (profile && (profile.first_name || profile.last_name || profile.avatar_url)) {
+                router.replace('/');
+                return;
+            }
             setLoading(false);
         };
 
@@ -146,7 +157,7 @@ export default function SetupPage() {
 
                 <div className="flex flex-wrap gap-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={avatarPreview || '/file.svg'} alt="Avatar preview" className="ms-avatar" />
+                    <img src={avatarPreview || '/default-avatar.svg'} alt="Avatar preview" className="ms-avatar" />
                     <div className="min-w-[220px] flex-1">
                     <label className="mb-3 block font-bold">
                         First Name:

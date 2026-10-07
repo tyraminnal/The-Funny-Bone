@@ -2,15 +2,120 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import type { User } from '@supabase/supabase-js';
+import { signInWithGoogle } from '@/lib/signIn';
 import { supabase } from '@/lib/supabase';
 import { useProfileCheck } from '@/lib/useProfileCheck';
-import { useRequireUser } from '@/lib/useRequireUser';
+import { useSession } from '@/lib/useSession';
 import { useVotes } from '@/lib/useVotes';
-import { CAPTION_STYLES, todaysTheme } from '@/lib/themes';
+import { todaysTheme } from '@/lib/themes';
 import type { Caption, Generation } from '@/lib/types';
 import Box from './components/Box';
+import MemeImage from './components/MemeImage';
 import PostCard from './components/PostCard';
+import Ranking from './components/Ranking';
 import Shell from './components/Shell';
+
+export default function Home() {
+    useProfileCheck();
+    const { user, ready } = useSession();
+
+    if (!ready) return <p className="p-8">Loading...</p>;
+    return user ? <Feed user={user} /> : <Welcome />;
+}
+
+// ---------------------------------------------------------------------------
+// Logged out: an AI meme to laugh at, and a way in.
+// ---------------------------------------------------------------------------
+
+interface ShowcaseMeme {
+    id: string;
+    template_name: string;
+    image_url: string;
+    top_text: string;
+    bottom_text: string;
+}
+
+function Welcome() {
+    const theme = todaysTheme();
+    const [memes, setMemes] = useState<ShowcaseMeme[] | null>(null);
+    const [index, setIndex] = useState(0);
+    const [signingIn, setSigningIn] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/meme')
+            .then((r) => r.json())
+            .then((d) => setMemes(d.memes ?? []))
+            .catch(() => setMemes([]));
+    }, []);
+
+    const meme = memes?.[index];
+    const step = (delta: number) => memes && setIndex((i) => (i + delta + memes.length) % memes.length);
+
+    const signIn = async () => {
+        setSigningIn(true);
+        if (await signInWithGoogle()) setSigningIn(false);
+    };
+
+    return (
+        <Shell signedIn={false}>
+            <div className="ms-cols-right">
+                <div className="ms-col">
+                    <Box title="😂 Meme of the Moment, made by AI">
+                        {memes === null ? (
+                            <p>Cooking up a meme...</p>
+                        ) : !meme ? (
+                            <p>The meme robot is napping. Sign in and make your own!</p>
+                        ) : (
+                            <>
+                                <MemeImage src={meme.image_url} alt={meme.template_name} topText={meme.top_text} bottomText={meme.bottom_text} />
+                                {memes.length > 1 && (
+                                    <div className="ms-pager">
+                                        <button className="ms-button" onClick={() => step(-1)}>◀ Prev</button>
+                                        <span>Meme {index + 1} of {memes.length}</span>
+                                        <button className="ms-button" onClick={() => step(1)}>Next ▶</button>
+                                    </div>
+                                )}
+                                <p className="ms-muted mt-1.5">Written by Gemini about today’s theme. A fresh one drops every few hours.</p>
+                            </>
+                        )}
+                    </Box>
+                </div>
+
+                <div className="ms-col">
+                    <Box title="Member Login">
+                        <p className="mb-2">Sign in to caption your own pics with AI and vote on everyone else’s.</p>
+                        <p className="text-center">
+                            <button onClick={signIn} disabled={signingIn} className="ms-button ms-button-big">
+                                {signingIn ? 'Signing in...' : 'Sign in with Google »'}
+                            </button>
+                        </p>
+                    </Box>
+
+                    <Box title="Today’s Theme">
+                        <p className="ms-title">{theme.title}</p>
+                        <p>{theme.blurb}</p>
+                    </Box>
+
+                    <Box title="Why join?">
+                        <table className="ms-table">
+                            <tbody>
+                                <tr><th>Make memes</th><td>Upload a pic, say what voice you want, get 4 AI captions</td></tr>
+                                <tr><th>Vote</th><td>LOL or meh on every caption</td></tr>
+                                <tr><th>Get ranked</th><td>Earn points and climb the Funniest Ranking</td></tr>
+                                <tr><th>Daily theme</th><td>A new theme every day, from the subway to Butler at 2am</td></tr>
+                            </tbody>
+                        </table>
+                    </Box>
+                </div>
+            </div>
+        </Shell>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Signed in: the feed, with voting and the points ranking.
+// ---------------------------------------------------------------------------
 
 type Sort = 'hot' | 'new' | 'top' | 'theme';
 
@@ -32,12 +137,8 @@ interface Me {
     avatar_url: string | null;
 }
 
-function bestCaption(post: Generation): Caption | undefined {
-    return post.captions.reduce<Caption | undefined>((best, c) => (!best || c.score > best.score ? c : best), undefined);
-}
-
 function bestScore(post: Generation) {
-    return Math.max(0, bestCaption(post)?.score ?? 0);
+    return post.captions.reduce((max, c) => Math.max(max, c.score), 0);
 }
 
 // Score decays with age so new posts get a chance to reach the top.
@@ -46,22 +147,17 @@ function hotness(post: Generation) {
     return (bestScore(post) + 1) / Math.pow(hours + 2, 1.5);
 }
 
-export default function Home() {
-    useProfileCheck();
-    const user = useRequireUser();
+function Feed({ user }: { user: User }) {
     const theme = todaysTheme();
-
     const [posts, setPosts] = useState<Generation[]>([]);
     const [topCaption, setTopCaption] = useState<TopCaption | null>(null);
     const [me, setMe] = useState<Me | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [sort, setSort] = useState<Sort>('hot');
-    const { myVotes, loadVotes, vote, voteError } = useVotes(user?.id ?? null, setPosts);
+    const { myVotes, loadVotes, vote, voteError, savedCaptionId, voteCount } = useVotes(user.id, setPosts);
 
     useEffect(() => {
-        if (!user) return;
-
         const load = async () => {
             const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
             const [feed, top, profile] = await Promise.all([
@@ -94,7 +190,7 @@ export default function Home() {
         };
 
         load();
-    }, [user, loadVotes]);
+    }, [user.id, loadVotes]);
 
     const visible = useMemo(() => {
         const list = sort === 'theme' ? posts.filter((p) => p.theme === theme.slug) : [...posts];
@@ -103,83 +199,12 @@ export default function Home() {
         return list;
     }, [posts, sort, theme.slug]);
 
-    const topEight = useMemo(
-        () => [...posts].sort((a, b) => bestScore(b) - bestScore(a) || hotness(b) - hotness(a)).slice(0, 8),
-        [posts]
-    );
-
-    const myPostCount = user ? posts.filter((p) => p.user_id === user.id).length : 0;
-    const votesCast = Object.keys(myVotes).length;
     const mood = MOODS[new Date().getDate() % MOODS.length];
-
-    if (!user) return <p className="p-8">Redirecting...</p>;
 
     return (
         <Shell>
-            <div className="ms-cols">
+            <div className="ms-cols-right">
                 <div className="ms-col">
-                    <section className="ms-profile">
-                        <h1 className="ms-big-title">{me?.first_name || 'Hey you'}</h1>
-                        <div className="flex gap-3">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={me?.avatar_url || '/file.svg'} alt="Your avatar" className="ms-avatar" />
-                            <div className="text-[13px]">
-                                <p>“funny bone<br />fully tickled”</p>
-                                <p className="mt-2">Columbia University<br />New York, NY</p>
-                                <p className="ms-online mt-2">Online Now!</p>
-                            </div>
-                        </div>
-                        <p className="mt-3 text-[13px]"><b>Mood:</b> {mood}</p>
-                        <p className="mt-1 text-[13px]">View my: <Link href="/profile">Profile</Link> | <Link href="/create">Make a Meme</Link></p>
-                    </section>
-
-                    <Box title="Today’s Theme">
-                        <p className="ms-title">{theme.title}</p>
-                        <p>{theme.blurb}</p>
-                        <Link href="/create" className="ms-button ms-button-big mt-3">Upload a Pic »</Link>
-                    </Box>
-
-                    {topCaption?.generations && (
-                        <Box title="👑 Caption of the Day">
-                            <Link href={`/post/${topCaption.generation_id}`} className="flex gap-2 text-inherit">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={topCaption.generations.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-                                <span>
-                                    <b>“{topCaption.text}”</b>
-                                    <span className="ms-muted block">+{topCaption.score} · {topCaption.style}</span>
-                                </span>
-                            </Link>
-                        </Box>
-                    )}
-
-                    <Box title="My Stats">
-                        <table className="ms-table">
-                            <tbody>
-                                <tr><th>Pics posted</th><td>{myPostCount}</td></tr>
-                                <tr><th>Votes cast</th><td>{votesCast}</td></tr>
-                                <tr><th>Caption robot</th><td>Gemini</td></tr>
-                                <tr><th>Voices</th><td>{CAPTION_STYLES.map((s) => s.name).join(', ')}</td></tr>
-                            </tbody>
-                        </table>
-                    </Box>
-                </div>
-
-                <div className="ms-col">
-                    {topEight.length > 0 && (
-                        <Box title="The Funny Bone’s Top 8">
-                            <p className="ms-muted mb-2">The funniest pics right now.</p>
-                            <div className="ms-top8">
-                                {topEight.map((post) => (
-                                    <Link key={post.id} href={`/post/${post.id}`}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={post.image_url} alt="" />
-                                        <span>{bestCaption(post)?.text}</span>
-                                    </Link>
-                                ))}
-                            </div>
-                        </Box>
-                    )}
-
                     <div>
                         <p className="ms-title">Latest Pics</p>
                         <div className="ms-tabs">
@@ -189,24 +214,65 @@ export default function Home() {
                                 </button>
                             ))}
                         </div>
-
                         {(error || voteError) && <p className="ms-error">{error || voteError}</p>}
-
-                        <div className="ms-col">
-                            {loading ? (
-                                <p>Loading the funny...</p>
-                            ) : visible.length === 0 ? (
-                                <Box title="Nothing here yet">
-                                    <p>Be the first to post for “{theme.title}”!</p>
-                                    <Link href="/create" className="ms-button ms-button-big mt-3">Upload a Pic »</Link>
-                                </Box>
-                            ) : (
-                                visible.map((post) => (
-                                    <PostCard key={post.id} post={post} userId={user.id} myVotes={myVotes} onVote={vote} />
-                                ))
-                            )}
-                        </div>
                     </div>
+
+                    {loading ? (
+                        <p>Loading the funny...</p>
+                    ) : visible.length === 0 ? (
+                        <Box title="Nothing here yet">
+                            <p>Be the first to post for “{theme.title}”!</p>
+                            <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                        </Box>
+                    ) : (
+                        visible.map((post) => (
+                            <PostCard
+                                key={post.id}
+                                post={post}
+                                userId={user.id}
+                                myVotes={myVotes}
+                                savedCaptionId={savedCaptionId}
+                                onVote={vote}
+                            />
+                        ))
+                    )}
+                </div>
+
+                <div className="ms-col">
+                    <section>
+                        <h1 className="ms-big-title">Hello, {me?.first_name || 'friend'}!</h1>
+                        <div className="flex gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={me?.avatar_url || '/default-avatar.svg'} alt="Your avatar" className="ms-avatar" />
+                            <div className="text-[11px]">
+                                <p>Columbia University<br />New York, NY</p>
+                                <p className="ms-online mt-2">Online Now!</p>
+                                <p className="mt-2"><b>Mood:</b> {mood}</p>
+                                <p className="mt-2"><Link href="/profile">Edit Profile</Link></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <Ranking refreshKey={voteCount} />
+
+                    <Box title="Today’s Theme">
+                        <p className="ms-title">{theme.title}</p>
+                        <p>{theme.blurb}</p>
+                        <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                    </Box>
+
+                    {topCaption?.generations && (
+                        <Box title="👑 Caption of the Day">
+                            <Link href={`/post/${topCaption.generation_id}`} className="flex gap-2 text-inherit">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={topCaption.generations.image_url} alt="" className="h-14 w-14 shrink-0 border border-[var(--box-border)] object-cover" />
+                                <span>
+                                    <b>“{topCaption.text}”</b>
+                                    <span className="ms-muted block">+{topCaption.score}</span>
+                                </span>
+                            </Link>
+                        </Box>
+                    )}
                 </div>
             </div>
         </Shell>
