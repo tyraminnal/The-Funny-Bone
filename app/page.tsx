@@ -118,32 +118,32 @@ export default function Home() {
         <Shell>
             <div className="ms-cols">
                 <div className="ms-col">
-                    <section>
+                    <section className="ms-profile">
                         <h1 className="ms-big-title">{me?.first_name || 'Hey you'}</h1>
                         <div className="flex gap-3">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={me?.avatar_url || '/file.svg'} alt="Your avatar" className="ms-avatar" />
-                            <div className="text-[11px]">
+                            <div className="text-[13px]">
                                 <p>“funny bone<br />fully tickled”</p>
                                 <p className="mt-2">Columbia University<br />New York, NY</p>
                                 <p className="ms-online mt-2">Online Now!</p>
                             </div>
                         </div>
-                        <p className="mt-2 text-[11px]"><b>Mood:</b> {mood}</p>
-                        <p className="mt-1 text-[11px]">View my: <Link href="/profile">Profile</Link> | <Link href="/create">Make a Meme</Link></p>
+                        <p className="mt-3 text-[13px]"><b>Mood:</b> {mood}</p>
+                        <p className="mt-1 text-[13px]">View my: <Link href="/profile">Profile</Link> | <Link href="/create">Make a Meme</Link></p>
                     </section>
 
                     <Box title="Today’s Theme">
                         <p className="ms-title">{theme.title}</p>
                         <p>{theme.blurb}</p>
-                        <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                        <Link href="/create" className="ms-button ms-button-big mt-3">Upload a Pic »</Link>
                     </Box>
 
                     {topCaption?.generations && (
                         <Box title="👑 Caption of the Day">
                             <Link href={`/post/${topCaption.generation_id}`} className="flex gap-2 text-inherit">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={topCaption.generations.image_url} alt="" className="h-16 w-16 shrink-0 border border-[var(--box-border)] object-cover" />
+                                <img src={topCaption.generations.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
                                 <span>
                                     <b>“{topCaption.text}”</b>
                                     <span className="ms-muted block">+{topCaption.score} · {topCaption.style}</span>
@@ -198,7 +198,7 @@ export default function Home() {
                             ) : visible.length === 0 ? (
                                 <Box title="Nothing here yet">
                                     <p>Be the first to post for “{theme.title}”!</p>
-                                    <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                                    <Link href="/create" className="ms-button ms-button-big mt-3">Upload a Pic »</Link>
                                 </Box>
                             ) : (
                                 visible.map((post) => (

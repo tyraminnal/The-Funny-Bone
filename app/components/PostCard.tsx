@@ -39,9 +39,9 @@ export default function PostCard({ post, userId, myVotes, onVote }: Props) {
                 <img src={post.image_url} alt="Uploaded photo" className="ms-post-photo" />
             </Link>
 
-            {post.user_context && <p className="ms-muted mt-1.5 italic">“{post.user_context}”</p>}
+            {post.user_context && <p className="ms-muted mt-2 italic">“{post.user_context}”</p>}
 
-            <p className="ms-title mt-2">AI Captions ({captions.length})</p>
+            <p className="ms-title mt-3">AI Captions ({captions.length})</p>
             {captions.map((caption) => {
                 const mine = myVotes[caption.id];
                 const blockedTitle = isMine ? 'You can’t vote on your own pic' : undefined;
@@ -60,7 +60,7 @@ export default function PostCard({ post, userId, myVotes, onVote }: Props) {
                                 title={blockedTitle}
                                 onClick={() => onVote(caption, 1)}
                             >
-                                LOL ▲
+                                ▲ LOL
                             </button>
                             <span className="ms-score">{caption.score > 0 ? `+${caption.score}` : caption.score}</span>
                             <button
@@ -77,7 +77,7 @@ export default function PostCard({ post, userId, myVotes, onVote }: Props) {
                 );
             })}
 
-            <p className="ms-muted mt-2 flex justify-between">
+            <p className="ms-muted mt-3 flex items-center justify-between">
                 <span>{isMine ? 'Share it so people vote!' : 'Vote for the funniest one'}</span>
                 <button onClick={copyLink} className="ms-button">{copied ? 'Copied!' : 'Copy Link'}</button>
             </p>
