@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProfileCheck } from '@/lib/useProfileCheck';
+import Box from '../components/Box';
+import Shell from '../components/Shell';
 
 export default function AuthPage() {
     const router = useRouter();
@@ -43,21 +45,35 @@ export default function AuthPage() {
     }
 
     return (
-        <main style={{ padding: '2rem', textAlign: 'center' }}>
-            <h1>Welcome to The Funny Bone</h1>
-            <p>Sign in with Google to continue</p>
-            <button
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-                style={{
-                    padding: '10px 20px',
-                    fontSize: '16px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.5 : 1,
-                }}
-            >
-                {loading ? 'Signing in...' : 'Sign in with Google'}
-            </button>
-        </main>
+        <Shell signedIn={false}>
+            <div className="ms-cols">
+                <div className="ms-col">
+                    <Box title="Member Login">
+                        <p className="mb-3">Sign in with your Google account to post pics and vote.</p>
+                        <p className="text-center">
+                            <button onClick={handleGoogleSignIn} disabled={loading} className="ms-button ms-button-big">
+                                {loading ? 'Signing in...' : 'Sign in with Google »'}
+                            </button>
+                        </p>
+                    </Box>
+                </div>
+                <div className="ms-col">
+                    <section>
+                        <h1 className="ms-big-title">Welcome to The Funny Bone!</h1>
+                        <p className="ms-title">Upload a pic. Get 4 AI captions. Vote for the funniest.</p>
+                    </section>
+                    <Box title="Why join?">
+                        <table className="ms-table">
+                            <tbody>
+                                <tr><th>Daily theme</th><td>A new theme every day, from the subway to Butler at 2am</td></tr>
+                                <tr><th>AI captions</th><td>Deadpan, Chronically Online, Midwest Transplant, and Real New Yorker</td></tr>
+                                <tr><th>Voting</th><td>LOL or meh. The funniest becomes Caption of the Day</td></tr>
+                                <tr><th>Top 8</th><td>The funniest pics on the site, updated live</td></tr>
+                            </tbody>
+                        </table>
+                    </Box>
+                </div>
+            </div>
+        </Shell>
     );
 }

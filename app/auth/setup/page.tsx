@@ -3,6 +3,8 @@
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Box from '../../components/Box';
+import Shell from '../../components/Shell';
 
 interface Profile {
     id: string;
@@ -136,80 +138,39 @@ export default function SetupPage() {
     if (loading) return <p>Loading...</p>;
 
     return (
-        <main style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-            <h1>Complete Your Profile</h1>
-            {user && <p>Email: {user.email}</p>}
+        <Shell signedIn={false}>
+            <Box title="Complete Your Profile" className="mx-auto max-w-[560px]">
+                <p className="mb-3">Welcome! Pick a name and a pic so people know who’s posting.</p>
+                {user && <p className="ms-muted mb-3">Signed in as {user.email}</p>}
+                {error && <p className="ms-error">{error}</p>}
 
-            {error && (
-                <div style={{
-                    color: 'red',
-                    marginBottom: '1rem',
-                    padding: '1rem',
-                    backgroundColor: '#ffe0e0',
-                    borderRadius: '4px'
-                }}>
-                    {error}
+                <div className="flex flex-wrap gap-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={avatarPreview || '/file.svg'} alt="Avatar preview" className="ms-avatar" />
+                    <div className="min-w-[220px] flex-1">
+                    <label className="mb-3 block font-bold">
+                        First Name:
+                        <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="ms-input mt-1 font-normal" />
+                    </label>
+
+                    <label className="mb-3 block font-bold">
+                        Last Name:
+                        <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="ms-input mt-1 font-normal" />
+                    </label>
+
+                    <label className="mb-3 block font-bold">
+                        Default Pic (optional):
+                        <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} className="mt-1 block font-normal" />
+                    </label>
+                    </div>
                 </div>
-            )}
 
-            <div style={{ marginTop: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                    First Name:
-                    <input
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px', width: '100%', boxSizing: 'border-box' }}
-                    />
-                </label>
-
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                    Last Name:
-                    <input
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        style={{ display: 'block', marginTop: '0.5rem', padding: '8px', width: '100%', boxSizing: 'border-box' }}
-                    />
-                </label>
-
-                <label style={{ display: 'block', marginBottom: '1rem' }}>
-                    Avatar (Optional):
-                    {avatarPreview && (
-                        <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
-                            <img
-                                src={avatarPreview}
-                                alt="Avatar preview"
-                                style={{ maxWidth: '150px', borderRadius: '8px' }}
-                            />
-                        </div>
-                    )}
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarChange}
-                        disabled={uploading}
-                        style={{ display: 'block', marginTop: '0.5rem' }}
-                    />
-                </label>
-
-                <button
-                    onClick={handleSave}
-                    disabled={saving || uploading}
-                    style={{
-                        marginTop: '1.5rem',
-                        padding: '10px 20px',
-                        cursor: saving || uploading ? 'not-allowed' : 'pointer',
-                        opacity: saving || uploading ? 0.5 : 1,
-                        backgroundColor: '#0066cc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px'
-                    }}
-                >
-                    {saving || uploading ? 'Saving...' : 'Continue'}
-                </button>
-            </div>
-        </main>
+                <p className="mt-2 text-center">
+                    <button onClick={handleSave} disabled={saving || uploading} className="ms-button ms-button-big">
+                        {saving || uploading ? 'Saving...' : 'Continue »'}
+                    </button>
+                </p>
+            </Box>
+        </Shell>
     );
 }

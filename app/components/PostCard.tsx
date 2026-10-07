@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { themeBySlug } from '@/lib/themes';
 import { timeAgo } from '@/lib/time';
 import type { Caption, Generation, VoteValue } from '@/lib/types';
+import Box from './Box';
 
 interface Props {
     post: Generation;
@@ -27,69 +28,59 @@ export default function PostCard({ post, userId, myVotes, onVote }: Props) {
     };
 
     return (
-        <article className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
+        <Box title={
+            <span className="flex justify-between gap-2">
+                <span>{isMine ? 'Your pic' : 'New pic'} {theme && `· ${theme.title}`}</span>
+                <span className="font-normal">{timeAgo(post.created_at)}</span>
+            </span>
+        }>
             <Link href={`/post/${post.id}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={post.image_url} alt="Uploaded photo" className="max-h-[520px] w-full bg-black object-contain" />
+                <img src={post.image_url} alt="Uploaded photo" className="ms-post-photo" />
             </Link>
 
-            <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs text-muted">
-                <span>
-                    {theme && <span className="mr-2 rounded-full bg-accent-soft px-2 py-0.5 font-semibold text-accent">{theme.title}</span>}
-                    {isMine ? 'Your post' : 'Posted'} · {timeAgo(post.created_at)}
-                </span>
-                <button onClick={copyLink} className="font-medium hover:text-foreground">
-                    {copied ? 'Link copied!' : 'Share'}
-                </button>
-            </div>
+            {post.user_context && <p className="ms-muted mt-1.5 italic">“{post.user_context}”</p>}
 
-            {post.user_context && (
-                <p className="px-4 pt-2 text-sm italic text-muted">“{post.user_context}”</p>
-            )}
+            <p className="ms-title mt-2">AI Captions ({captions.length})</p>
+            {captions.map((caption) => {
+                const mine = myVotes[caption.id];
+                const blockedTitle = isMine ? 'You can’t vote on your own pic' : undefined;
+                return (
+                    <div key={caption.id} className="ms-caption">
+                        <div className="ms-caption-text">
+                            {caption.id === leaderId && <span title="Top caption">👑 </span>}
+                            {caption.text}
+                            <span className="ms-caption-style">{caption.style}</span>
+                        </div>
+                        <div className="ms-votes">
+                            <button
+                                className="ms-vote"
+                                data-on={mine === 1 ? 'up' : undefined}
+                                disabled={isMine}
+                                title={blockedTitle}
+                                onClick={() => onVote(caption, 1)}
+                            >
+                                LOL ▲
+                            </button>
+                            <span className="ms-score">{caption.score > 0 ? `+${caption.score}` : caption.score}</span>
+                            <button
+                                className="ms-vote"
+                                data-on={mine === -1 ? 'down' : undefined}
+                                disabled={isMine}
+                                title={blockedTitle}
+                                onClick={() => onVote(caption, -1)}
+                            >
+                                meh ▼
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
 
-            <ul className="divide-y divide-line px-4 pb-2 pt-1">
-                {captions.map((caption) => {
-                    const mine = myVotes[caption.id];
-                    return (
-                        <li key={caption.id} className="flex items-center gap-3 py-3">
-                            <div className="flex w-10 shrink-0 flex-col items-center">
-                                <button
-                                    aria-label="Upvote"
-                                    title={isMine ? 'You can’t vote on your own post' : 'Funny'}
-                                    disabled={isMine}
-                                    onClick={() => onVote(caption, 1)}
-                                    className={`rounded-md px-2 leading-6 disabled:cursor-not-allowed disabled:opacity-30 ${
-                                        mine === 1 ? 'bg-accent-soft text-accent' : 'text-muted hover:text-accent'
-                                    }`}
-                                >
-                                    ▲
-                                </button>
-                                <span className={`text-sm font-bold tabular-nums ${mine === 1 ? 'text-accent' : mine === -1 ? 'text-down' : ''}`}>
-                                    {caption.score}
-                                </span>
-                                <button
-                                    aria-label="Downvote"
-                                    title={isMine ? 'You can’t vote on your own post' : 'Not funny'}
-                                    disabled={isMine}
-                                    onClick={() => onVote(caption, -1)}
-                                    className={`rounded-md px-2 leading-6 disabled:cursor-not-allowed disabled:opacity-30 ${
-                                        mine === -1 ? 'bg-down-soft text-down' : 'text-muted hover:text-down'
-                                    }`}
-                                >
-                                    ▼
-                                </button>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[15px] leading-snug">
-                                    {caption.id === leaderId && <span className="mr-1" title="Top caption">👑</span>}
-                                    {caption.text}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted">{caption.style}</p>
-                            </div>
-                        </li>
-                    );
-                })}
-            </ul>
-        </article>
+            <p className="ms-muted mt-2 flex justify-between">
+                <span>{isMine ? 'Share it so people vote!' : 'Vote for the funniest one'}</span>
+                <button onClick={copyLink} className="ms-button">{copied ? 'Copied!' : 'Copy Link'}</button>
+            </p>
+        </Box>
     );
 }

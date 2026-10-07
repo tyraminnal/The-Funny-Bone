@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useProfileCheck } from '@/lib/useProfileCheck';
 import { useRequireUser } from '@/lib/useRequireUser';
-import { todaysTheme } from '@/lib/themes';
-import Nav from '../components/Nav';
+import { CAPTION_STYLES, todaysTheme } from '@/lib/themes';
+import Box from '../components/Box';
+import Shell from '../components/Shell';
 
 const MAX_DIMENSION = 1280;
 const LOADING_LINES = [
@@ -110,57 +111,72 @@ export default function CreatePage() {
     if (!user) return <p className="p-8">Redirecting...</p>;
 
     return (
-        <>
-            <Nav />
-            <main className="mx-auto max-w-2xl px-4 pb-16 pt-6">
-                <h1 className="text-2xl font-bold">Make a meme</h1>
-                <p className="mt-1 text-sm text-muted">
-                    Upload a photo and our AI writes four captions in different voices. Everyone else votes on the funniest.
-                </p>
-
-                <div className="mt-4 rounded-2xl bg-accent-soft p-4 text-sm">
-                    <span className="font-semibold text-accent">Today’s theme: {theme.title}.</span> {theme.blurb}
+        <Shell>
+            <div className="ms-cols">
+                <div className="ms-col">
+                    <Box title="How it works">
+                        <ol className="list-decimal space-y-1 pl-4">
+                            <li>Upload a pic (bonus points for today’s theme)</li>
+                            <li>Our caption robot writes 4 captions in 4 voices</li>
+                            <li>Everyone votes LOL or meh</li>
+                            <li>The best one becomes Caption of the Day 👑</li>
+                        </ol>
+                    </Box>
+                    <Box title="Today’s Theme">
+                        <p className="ms-title">{theme.title}</p>
+                        <p>{theme.blurb}</p>
+                    </Box>
+                    <Box title="The 4 Voices">
+                        <table className="ms-table">
+                            <tbody>
+                                {CAPTION_STYLES.map((s) => (
+                                    <tr key={s.name}><th>{s.name}</th><td>{s.guide}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </Box>
                 </div>
 
-                <label className="mt-6 flex min-h-56 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-line bg-card text-center hover:border-accent">
-                    {preview ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={preview} alt="Your photo" className="max-h-[480px] w-full object-contain" />
-                    ) : (
-                        <span className="p-8 text-muted">
-                            <span className="block text-3xl">📸</span>
-                            Tap to choose a photo
-                        </span>
-                    )}
-                    <input type="file" accept="image/*" onChange={handleFile} disabled={generating} className="hidden" />
-                </label>
+                <Box title="Make a Meme">
+                    <label className="ms-dropzone">
+                        {preview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={preview} alt="Your pic" />
+                        ) : (
+                            <span className="p-6">
+                                <span className="block text-3xl">📸</span>
+                                <b>Click here to pick a pic</b>
+                                <span className="ms-muted block">JPEG, PNG, or WebP</span>
+                            </span>
+                        )}
+                        <input type="file" accept="image/*" onChange={handleFile} disabled={generating} className="hidden" />
+                    </label>
 
-                <label className="mt-4 block text-sm font-medium">
-                    Add context (optional)
-                    <input
-                        type="text"
-                        value={context}
-                        maxLength={140}
-                        onChange={(e) => setContext(e.target.value)}
-                        disabled={generating}
-                        placeholder="e.g. the 1 train at 116th, 8:55 for a 9am"
-                        className="mt-1 block w-full rounded-xl border border-line bg-card px-3 py-2 font-normal outline-none focus:border-accent"
-                    />
-                </label>
+                    <label className="mt-3 block font-bold">
+                        Add context (optional):
+                        <input
+                            type="text"
+                            value={context}
+                            maxLength={140}
+                            onChange={(e) => setContext(e.target.value)}
+                            disabled={generating}
+                            placeholder="e.g. the 1 train at 116th, 8:55 for a 9am"
+                            className="ms-input mt-1 font-normal"
+                        />
+                    </label>
 
-                {error && <p className="mt-4 rounded-xl bg-red-100 p-3 text-sm text-red-800">{error}</p>}
+                    {error && <p className="ms-error">{error}</p>}
 
-                <button
-                    onClick={handleGenerate}
-                    disabled={!image || generating}
-                    className="mt-6 w-full rounded-full bg-accent py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    {generating ? LOADING_LINES[loadingLine] : 'Generate captions'}
-                </button>
-                <p className="mt-3 text-center text-xs text-muted">
-                    Your photo is shared with everyone signed in to The Funny Bone. Don’t post people who didn’t agree to it.
-                </p>
-            </main>
-        </>
+                    <p className="mt-3 text-center">
+                        <button onClick={handleGenerate} disabled={!image || generating} className="ms-button ms-button-big">
+                            {generating ? LOADING_LINES[loadingLine] : 'Generate Captions »'}
+                        </button>
+                    </p>
+                    <p className="ms-muted mt-3 text-center">
+                        Everyone signed in can see your pic. Don’t post people who didn’t say it was OK.
+                    </p>
+                </Box>
+            </div>
+        </Shell>
     );
 }

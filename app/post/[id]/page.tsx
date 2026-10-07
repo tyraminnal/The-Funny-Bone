@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useRequireUser } from '@/lib/useRequireUser';
 import { useVotes } from '@/lib/useVotes';
 import type { Generation } from '@/lib/types';
-import Nav from '../../components/Nav';
+import Shell from '../../components/Shell';
 import PostCard from '../../components/PostCard';
 
 export default function PostPage() {
@@ -38,21 +38,18 @@ export default function PostPage() {
     if (!user) return <p className="p-8">Redirecting...</p>;
 
     return (
-        <>
-            <Nav />
-            <main className="mx-auto max-w-2xl px-4 pb-16 pt-6">
-                <Link href="/" className="text-sm text-muted hover:text-foreground">← Back to feed</Link>
-                {voteError && <p className="mt-4 rounded-xl bg-red-100 p-3 text-sm text-red-800">{voteError}</p>}
-                <div className="mt-4">
-                    {loading ? (
-                        <p className="text-muted">Loading...</p>
-                    ) : posts[0] ? (
-                        <PostCard post={posts[0]} userId={user.id} myVotes={myVotes} onVote={vote} />
-                    ) : (
-                        <p>This post doesn’t exist.</p>
-                    )}
+        <Shell>
+            <p className="mb-2"><Link href="/">« Back to Home</Link></p>
+            {voteError && <p className="ms-error">{voteError}</p>}
+            {loading ? (
+                <p>Loading...</p>
+            ) : posts[0] ? (
+                <div className="mx-auto max-w-[560px]">
+                    <PostCard post={posts[0]} userId={user.id} myVotes={myVotes} onVote={vote} />
                 </div>
-            </main>
-        </>
+            ) : (
+                <p>This pic doesn’t exist (or got deleted).</p>
+            )}
+        </Shell>
     );
 }

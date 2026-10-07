@@ -6,26 +6,38 @@ import { supabase } from '@/lib/supabase';
 import { useProfileCheck } from '@/lib/useProfileCheck';
 import { useRequireUser } from '@/lib/useRequireUser';
 import { useVotes } from '@/lib/useVotes';
-import { todaysTheme } from '@/lib/themes';
+import { CAPTION_STYLES, todaysTheme } from '@/lib/themes';
 import type { Caption, Generation } from '@/lib/types';
-import Nav from './components/Nav';
+import Box from './components/Box';
 import PostCard from './components/PostCard';
+import Shell from './components/Shell';
 
 type Sort = 'hot' | 'new' | 'top' | 'theme';
 
 const SORTS: { key: Sort; label: string }[] = [
-    { key: 'hot', label: '🔥 Hot' },
+    { key: 'hot', label: 'Hot' },
     { key: 'new', label: 'New' },
     { key: 'top', label: 'Top' },
-    { key: 'theme', label: 'Today’s theme' },
+    { key: 'theme', label: 'Today’s Theme' },
 ];
+
+const MOODS = ['amused 😂', 'giggly 🤭', 'chaotic 🙃', 'procrastinating 📚', 'homesick 🌽', 'caffeinated ☕'];
 
 interface TopCaption extends Caption {
     generations: { image_url: string } | null;
 }
 
+interface Me {
+    first_name: string | null;
+    avatar_url: string | null;
+}
+
+function bestCaption(post: Generation): Caption | undefined {
+    return post.captions.reduce<Caption | undefined>((best, c) => (!best || c.score > best.score ? c : best), undefined);
+}
+
 function bestScore(post: Generation) {
-    return post.captions.reduce((max, c) => Math.max(max, c.score), 0);
+    return Math.max(0, bestCaption(post)?.score ?? 0);
 }
 
 // Score decays with age so new posts get a chance to reach the top.
@@ -41,6 +53,7 @@ export default function Home() {
 
     const [posts, setPosts] = useState<Generation[]>([]);
     const [topCaption, setTopCaption] = useState<TopCaption | null>(null);
+    const [me, setMe] = useState<Me | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [sort, setSort] = useState<Sort>('hot');
@@ -51,7 +64,7 @@ export default function Home() {
 
         const load = async () => {
             const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
-            const [feed, top] = await Promise.all([
+            const [feed, top, profile] = await Promise.all([
                 supabase
                     .from('generations')
                     .select('id, user_id, image_url, theme, user_context, created_at, captions(*)')
@@ -65,6 +78,7 @@ export default function Home() {
                     .order('score', { ascending: false })
                     .limit(1)
                     .maybeSingle(),
+                supabase.from('profiles').select('first_name, avatar_url').eq('id', user.id).maybeSingle(),
             ]);
 
             if (feed.error) {
@@ -74,6 +88,7 @@ export default function Home() {
             const loaded = (feed.data ?? []) as Generation[];
             setPosts(loaded);
             setTopCaption((top.data as TopCaption | null) ?? null);
+            setMe(profile.data);
             await loadVotes(loaded.flatMap((p) => p.captions.map((c) => c.id)));
             setLoading(false);
         };
@@ -88,81 +103,112 @@ export default function Home() {
         return list;
     }, [posts, sort, theme.slug]);
 
+    const topEight = useMemo(
+        () => [...posts].sort((a, b) => bestScore(b) - bestScore(a) || hotness(b) - hotness(a)).slice(0, 8),
+        [posts]
+    );
+
+    const myPostCount = user ? posts.filter((p) => p.user_id === user.id).length : 0;
     const votesCast = Object.keys(myVotes).length;
+    const mood = MOODS[new Date().getDate() % MOODS.length];
 
     if (!user) return <p className="p-8">Redirecting...</p>;
 
     return (
-        <>
-            <Nav />
-            <main className="mx-auto max-w-2xl px-4 pb-16 pt-6">
-                <section className="rounded-2xl bg-foreground p-5 text-background">
-                    <p className="text-xs font-semibold uppercase tracking-widest opacity-70">Today’s theme</p>
-                    <h1 className="mt-1 text-2xl font-bold">{theme.title}</h1>
-                    <p className="mt-1 text-sm opacity-80">{theme.blurb}</p>
-                    <Link
-                        href="/create"
-                        className="mt-4 inline-block rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-                    >
-                        Upload a photo →
-                    </Link>
-                </section>
-
-                {topCaption && topCaption.generations && (
-                    <Link
-                        href={`/post/${topCaption.generation_id}`}
-                        className="mt-4 flex items-center gap-4 rounded-2xl border border-line bg-card p-3 hover:border-accent"
-                    >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={topCaption.generations.image_url} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
-                        <div className="min-w-0">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-accent">👑 Caption of the day</p>
-                            <p className="truncate text-sm font-medium">{topCaption.text}</p>
-                            <p className="text-xs text-muted">+{topCaption.score} · {topCaption.style}</p>
+        <Shell>
+            <div className="ms-cols">
+                <div className="ms-col">
+                    <section>
+                        <h1 className="ms-big-title">{me?.first_name || 'Hey you'}</h1>
+                        <div className="flex gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={me?.avatar_url || '/file.svg'} alt="Your avatar" className="ms-avatar" />
+                            <div className="text-[11px]">
+                                <p>“funny bone<br />fully tickled”</p>
+                                <p className="mt-2">Columbia University<br />New York, NY</p>
+                                <p className="ms-online mt-2">Online Now!</p>
+                            </div>
                         </div>
-                    </Link>
-                )}
+                        <p className="mt-2 text-[11px]"><b>Mood:</b> {mood}</p>
+                        <p className="mt-1 text-[11px]">View my: <Link href="/profile">Profile</Link> | <Link href="/create">Make a Meme</Link></p>
+                    </section>
 
-                <div className="mt-6 flex items-center justify-between gap-2">
-                    <div className="flex gap-1 overflow-x-auto">
-                        {SORTS.map((s) => (
-                            <button
-                                key={s.key}
-                                onClick={() => setSort(s.key)}
-                                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${
-                                    sort === s.key ? 'bg-foreground text-background' : 'text-muted hover:text-foreground'
-                                }`}
-                            >
-                                {s.label}
-                            </button>
-                        ))}
-                    </div>
-                    {votesCast > 0 && <span className="hidden text-xs text-muted sm:inline">{votesCast} votes cast</span>}
-                </div>
+                    <Box title="Today’s Theme">
+                        <p className="ms-title">{theme.title}</p>
+                        <p>{theme.blurb}</p>
+                        <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                    </Box>
 
-                {(error || voteError) && (
-                    <p className="mt-4 rounded-xl bg-red-100 p-3 text-sm text-red-800">{error || voteError}</p>
-                )}
-
-                <div className="mt-4 space-y-6">
-                    {loading ? (
-                        <p className="text-muted">Loading the funny...</p>
-                    ) : visible.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-line p-8 text-center">
-                            <p className="font-medium">Nothing here yet.</p>
-                            <p className="mt-1 text-sm text-muted">Be the first to post for “{theme.title}”.</p>
-                        </div>
-                    ) : (
-                        visible.map((post) => (
-                            <PostCard key={post.id} post={post} userId={user.id} myVotes={myVotes} onVote={vote} />
-                        ))
+                    {topCaption?.generations && (
+                        <Box title="👑 Caption of the Day">
+                            <Link href={`/post/${topCaption.generation_id}`} className="flex gap-2 text-inherit">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={topCaption.generations.image_url} alt="" className="h-16 w-16 shrink-0 border border-[var(--box-border)] object-cover" />
+                                <span>
+                                    <b>“{topCaption.text}”</b>
+                                    <span className="ms-muted block">+{topCaption.score} · {topCaption.style}</span>
+                                </span>
+                            </Link>
+                        </Box>
                     )}
+
+                    <Box title="My Stats">
+                        <table className="ms-table">
+                            <tbody>
+                                <tr><th>Pics posted</th><td>{myPostCount}</td></tr>
+                                <tr><th>Votes cast</th><td>{votesCast}</td></tr>
+                                <tr><th>Caption robot</th><td>Gemini</td></tr>
+                                <tr><th>Voices</th><td>{CAPTION_STYLES.map((s) => s.name).join(', ')}</td></tr>
+                            </tbody>
+                        </table>
+                    </Box>
                 </div>
 
-                <p className="mt-12 text-center text-xs text-muted">
-                    <Link href="/shows" className="hover:text-foreground">TV shows</Link>
-                </p>
-            </main>
-        </>
+                <div className="ms-col">
+                    {topEight.length > 0 && (
+                        <Box title="The Funny Bone’s Top 8">
+                            <p className="ms-muted mb-2">The funniest pics right now.</p>
+                            <div className="ms-top8">
+                                {topEight.map((post) => (
+                                    <Link key={post.id} href={`/post/${post.id}`}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={post.image_url} alt="" />
+                                        <span>{bestCaption(post)?.text}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </Box>
+                    )}
+
+                    <div>
+                        <p className="ms-title">Latest Pics</p>
+                        <div className="ms-tabs">
+                            {SORTS.map((s) => (
+                                <button key={s.key} className="ms-tab" aria-pressed={sort === s.key} onClick={() => setSort(s.key)}>
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {(error || voteError) && <p className="ms-error">{error || voteError}</p>}
+
+                        <div className="ms-col">
+                            {loading ? (
+                                <p>Loading the funny...</p>
+                            ) : visible.length === 0 ? (
+                                <Box title="Nothing here yet">
+                                    <p>Be the first to post for “{theme.title}”!</p>
+                                    <Link href="/create" className="ms-button mt-2">Upload a Pic »</Link>
+                                </Box>
+                            ) : (
+                                visible.map((post) => (
+                                    <PostCard key={post.id} post={post} userId={user.id} myVotes={myVotes} onVote={vote} />
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Shell>
     );
 }
