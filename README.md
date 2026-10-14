@@ -8,12 +8,13 @@ Upload a photo, get AI-written captions in four voices, and vote on the funniest
 - **AI captions.** Signed-in users upload a photo, type the voice they want ("my mom on Facebook", "a tired TA"...), and Gemini writes four captions. The exact prompt is saved with every post.
 - **Captions on the photo.** Each caption is drawn over the image meme-style; Prev / Next flips through them.
 - **Voting.** Signed-in users vote LOL or meh on each caption. Every vote inserts a new row in `caption_votes`; changing a vote deletes the old row and inserts a new one.
-- **Points ranking.** +2 per pic posted, +1 per vote cast, +1 per LOL your captions get (−1 per meh). Votes on your own pics don't count.
+- **Suggested pics.** No photo handy? Pick a classic meme template on Make a Meme and get captions for that instead.
+- **Live points ranking.** Updates on its own as people post and vote, with ▲/▼ badges when ranks change. +2 per pic posted, +1 per vote cast, +1 per LOL your captions get (−1 per meh). Votes on your own pics don't count.
 - **Daily theme, Caption of the Day, and shareable post pages.** Plus Classic, Emo, and Glitter profile skins.
 
 ## Setup
 
-1. Run both files in `supabase/migrations/` in the Supabase SQL Editor, oldest first.
+1. Run every file in `supabase/migrations/` in the Supabase SQL Editor, oldest first.
 2. Add these environment variables to `.env.local` and to Vercel:
 
 ```
@@ -33,7 +34,6 @@ Row level security is on for every table:
 | Table | Who can read | Who can write |
 | --- | --- | --- |
 | `profiles` | Only the owner | Only the owner |
-| `tvshows` | Signed-in users | Nobody |
 | `generations`, `captions` | Signed-in users | Only the server, after the AI responds |
 | `caption_votes` | Only the voter | Only the voter (insert and delete, never update) |
 | `showcase_memes` | Only the server | Only the server |

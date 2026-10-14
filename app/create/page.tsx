@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useProfileCheck } from '@/lib/useProfileCheck';
 import { useRequireUser } from '@/lib/useRequireUser';
+import { MEME_TEMPLATES, type MemeTemplate } from '@/lib/memeTemplates';
 import { todaysTheme } from '@/lib/themes';
 import Box from '../components/Box';
 import Shell from '../components/Shell';
 
 const MAX_DIMENSION = 1280;
+const SUGGESTIONS_SHOWN = 8;
 const LOADING_LINES = [
     'Showing your pic to the caption robot...',
     'Getting into character...',
@@ -20,7 +22,7 @@ const LOADING_LINES = [
 const VOICE_IDEAS = ['my mom on Facebook', 'a tired TA', 'a nature documentary narrator', 'a sports announcer', 'Shakespeare', 'a LinkedIn influencer'];
 
 // Shrinks the photo in the browser so uploads stay small and fast.
-function resizeImage(file: File): Promise<Blob> {
+function resizeImage(file: Blob): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const img = new Image();
@@ -54,6 +56,12 @@ export default function CreatePage() {
     const [generating, setGenerating] = useState(false);
     const [loadingLine, setLoadingLine] = useState(0);
     const [error, setError] = useState('');
+    const [suggestionPage, setSuggestionPage] = useState(0);
+    const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
+    const [loadingTemplate, setLoadingTemplate] = useState<string | null>(null);
+
+    const suggestionPages = Math.ceil(MEME_TEMPLATES.length / SUGGESTIONS_SHOWN);
+    const suggestions = MEME_TEMPLATES.slice(suggestionPage * SUGGESTIONS_SHOWN, (suggestionPage + 1) * SUGGESTIONS_SHOWN);
 
     useEffect(() => {
         if (!generating) return;
@@ -63,16 +71,37 @@ export default function CreatePage() {
 
     useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
+    const showPhoto = async (file: Blob) => {
+        const resized = await resizeImage(file);
+        setImage(resized);
+        setPreview(URL.createObjectURL(resized));
+    };
+
     const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setError('');
+        setPickedTemplate(null);
         try {
-            const resized = await resizeImage(file);
-            setImage(resized);
-            setPreview(URL.createObjectURL(resized));
+            await showPhoto(file);
         } catch {
             setError('Couldn’t read that photo. Try a JPEG or PNG.');
+        }
+    };
+
+    // Suggested pics come through our own /api/template-image so the canvas resize works.
+    const pickTemplate = async (template: MemeTemplate) => {
+        setError('');
+        setLoadingTemplate(template.id);
+        try {
+            const response = await fetch(`/api/template-image?id=${encodeURIComponent(template.id)}`);
+            if (!response.ok) throw new Error('template fetch failed');
+            await showPhoto(await response.blob());
+            setPickedTemplate(template.id);
+        } catch {
+            setError('Couldn’t load that pic. Try another one or upload your own.');
+        } finally {
+            setLoadingTemplate(null);
         }
     };
 
@@ -147,6 +176,39 @@ export default function CreatePage() {
                         )}
                         <input type="file" accept="image/*" onChange={handleFile} disabled={generating} className="hidden" />
                     </label>
+
+                    <div className="mt-3">
+                        <p className="font-bold">
+                            No pic? Pick a classic:
+                            {suggestionPages > 1 && (
+                                <button
+                                    type="button"
+                                    className="ml-2 font-normal text-[var(--link)] hover:underline"
+                                    onClick={() => setSuggestionPage((p) => (p + 1) % suggestionPages)}
+                                    disabled={generating}
+                                >
+                                    show more »
+                                </button>
+                            )}
+                        </p>
+                        <ul className="ms-suggest">
+                            {suggestions.map((template) => (
+                                <li key={template.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => pickTemplate(template)}
+                                        disabled={generating || loadingTemplate !== null}
+                                        aria-pressed={pickedTemplate === template.id}
+                                        title={`${template.name}: ${template.hint}`}
+                                    >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={template.url} alt="" loading="lazy" />
+                                        <span>{loadingTemplate === template.id ? 'Loading...' : template.name}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
 
                     <label className="mt-3 block font-bold">
                         What voice should the captions be in?

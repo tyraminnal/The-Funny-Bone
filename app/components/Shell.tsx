@@ -11,7 +11,6 @@ const LINKS = [
     { href: '/', label: 'Home' },
     { href: '/create', label: 'Make a Meme' },
     { href: '/profile', label: 'Profile' },
-    { href: '/shows', label: 'TV Shows' },
 ];
 
 const SKINS = [

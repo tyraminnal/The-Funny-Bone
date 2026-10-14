@@ -521,6 +521,56 @@ a:hover {
   object-fit: contain;
 }
 
+/* Suggested template pics on Make a Meme */
+
+.ms-suggest {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-suggest button {
+  display: block;
+  width: 100%;
+  padding: 2px;
+  border: 2px solid var(--box-border);
+  background: var(--cell-bg);
+  cursor: pointer;
+  font-size: 10px;
+  text-align: center;
+}
+.ms-suggest button:hover:not(:disabled),
+.ms-suggest button[aria-pressed="true"] {
+  border-color: var(--link);
+}
+.ms-suggest button[aria-pressed="true"] {
+  background: var(--label-bg);
+  font-weight: bold;
+}
+.ms-suggest button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.ms-suggest img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.ms-suggest span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .ms-suggest {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* Main column on the left, sidebar on the right */
 
 .ms-cols-right {
@@ -660,4 +710,43 @@ a:hover {
 }
 .ms-rank-pts {
   font-weight: bold;
+}
+
+/* Live ranking: rank-change badges and a short highlight on rows that moved */
+
+.ms-live {
+  margin: 0 0 4px;
+  color: #2a9d3a;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.ms-live span {
+  animation: ms-blink 1.6s steps(2, start) infinite;
+}
+.ms-rank-move {
+  font-size: 10px;
+  font-weight: bold;
+}
+.ms-rank-move.up,
+.ms-rank-move.new {
+  color: #2a9d3a;
+}
+.ms-rank-move.down {
+  color: #cc2222;
+}
+.ms-rank li.moved {
+  animation: ms-rank-flash 1.2s ease-out;
+}
+@keyframes ms-rank-flash {
+  from {
+    background: var(--label-bg);
+    outline: 1px solid var(--link);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-live span,
+  .ms-rank li.moved {
+    animation: none;
+  }
 }
