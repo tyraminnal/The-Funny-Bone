@@ -86,6 +86,7 @@ export default function Ranking({ refreshKey }: { refreshKey?: unknown }) {
             .channel('ranking')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'generations' }, reloadSoon)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'captions' }, reloadSoon)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'battles' }, reloadSoon)
             .subscribe((status) => setLive(status === 'SUBSCRIBED'));
 
         const poll = setInterval(() => {
@@ -134,7 +135,7 @@ export default function Ranking({ refreshKey }: { refreshKey?: unknown }) {
                 </ol>
             )}
             <p className="ms-muted mt-2">
-                +2 per pic you post · +1 per vote you cast · +1 per LOL your captions get (−1 per meh). Votes on your own pics don’t count.
+                +2 per pic or battle you post · +1 per vote you cast · +1 per LOL your captions get (−1 per meh) · +1 per vote you win against the AI. Votes on your own posts don’t count.
             </p>
         </Box>
     );

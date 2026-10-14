@@ -7,6 +7,7 @@ import { timeAgo } from '@/lib/time';
 import type { Caption, Generation, VoteValue } from '@/lib/types';
 import Box from './Box';
 import MemeImage from './MemeImage';
+import ShareButtons from './ShareButtons';
 
 interface Props {
     post: Generation;
@@ -18,7 +19,6 @@ interface Props {
 
 export default function PostCard({ post, userId, myVotes, savedCaptionId, onVote }: Props) {
     const [index, setIndex] = useState(0);
-    const [copied, setCopied] = useState(false);
 
     // Keep captions in the order they were written so they don't jump around while people vote.
     const captions = [...post.captions].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
@@ -28,12 +28,6 @@ export default function PostCard({ post, userId, myVotes, savedCaptionId, onVote
     const mine = caption ? myVotes[caption.id] : undefined;
 
     const step = (delta: number) => setIndex((i) => (i + delta + captions.length) % captions.length);
-
-    const copyLink = async () => {
-        await navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-    };
 
     return (
         <Box title={
@@ -70,10 +64,10 @@ export default function PostCard({ post, userId, myVotes, savedCaptionId, onVote
 
             {post.user_context && <p className="ms-muted mt-1.5 italic">“{post.user_context}”</p>}
 
-            <p className="ms-muted mt-2 flex items-center justify-between">
+            <div className="ms-muted mt-2 flex flex-wrap items-center justify-between gap-2">
                 <Link href={`/post/${post.id}`}>Permalink</Link>
-                <button onClick={copyLink} className="ms-button">{copied ? 'Copied!' : 'Copy Link'}</button>
-            </p>
+                <ShareButtons path={`/post/${post.id}`} text={caption ? `“${caption.text}” 😂 Vote on the funniest caption on The Funny Bone` : 'Vote on the funniest caption on The Funny Bone'} />
+            </div>
         </Box>
     );
 }

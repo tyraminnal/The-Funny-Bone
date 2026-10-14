@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
+import { rememberReturnTo } from './returnTo';
 import { supabase } from './supabase';
 
 // Redirects to /auth when nobody is signed in. Returns the user once known.
@@ -11,6 +12,7 @@ export function useRequireUser() {
     useEffect(() => {
         supabase.auth.getSession().then(({ data }) => {
             if (!data.session) {
+                rememberReturnTo();
                 router.push('/auth');
                 return;
             }

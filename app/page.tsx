@@ -10,6 +10,7 @@ import { useSession } from '@/lib/useSession';
 import { useVotes } from '@/lib/useVotes';
 import { todaysTheme } from '@/lib/themes';
 import type { Caption, Generation } from '@/lib/types';
+import BattleScoreboard from './components/BattleScoreboard';
 import Box from './components/Box';
 import MemeImage from './components/MemeImage';
 import PostCard from './components/PostCard';
@@ -61,7 +62,7 @@ function Welcome() {
         <Shell signedIn={false}>
             <div className="ms-cols-right">
                 <div className="ms-col">
-                    <Box title="😂 Meme of the Moment, made by AI">
+                    <Box title="😂 Meme of the Moment">
                         {memes === null ? (
                             <p>Cooking up a meme...</p>
                         ) : !meme ? (
@@ -254,6 +255,8 @@ function Feed({ user }: { user: User }) {
                     </section>
 
                     <Ranking refreshKey={voteCount} />
+
+                    <BattleScoreboard showLink />
 
                     <Box title="Today’s Theme">
                         <p className="ms-title">{theme.title}</p>

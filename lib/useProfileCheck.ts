@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { rememberReturnTo } from './returnTo';
 import { supabase } from './supabase';
 
 export function useProfileCheck() {
@@ -17,7 +18,10 @@ export function useProfileCheck() {
 
             if (!data.session) {
                 // The home page has its own logged-out view.
-                if (pathname !== '/') router.push('/auth');
+                if (pathname !== '/') {
+                    rememberReturnTo();
+                    router.push('/auth');
+                }
                 return;
             }
 

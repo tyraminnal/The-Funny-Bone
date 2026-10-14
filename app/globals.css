@@ -750,3 +750,119 @@ a:hover {
     animation: none;
   }
 }
+
+/* Share buttons */
+
+.ms-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ms-share-label {
+  font-size: 11px;
+}
+.ms-share a.ms-button {
+  color: var(--text);
+}
+
+/* Human vs AI */
+
+.ms-vs-score {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.ms-vs-score b {
+  color: var(--title);
+  font-size: 18px;
+}
+.ms-vs-bar {
+  height: 10px;
+  margin-top: 4px;
+  border: 1px solid var(--box-border);
+  background: var(--cell-bg);
+}
+.ms-vs-bar span {
+  display: block;
+  height: 100%;
+  background: var(--link);
+  transition: width 0.4s ease-out;
+}
+
+.ms-battle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ms-battle-side {
+  padding: 6px;
+  border: 2px solid var(--box-border);
+  background: var(--cell-bg);
+}
+.ms-battle-side[data-won] {
+  border-color: var(--link);
+  background: var(--label-bg);
+}
+.ms-battle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: var(--title);
+  font-weight: bold;
+}
+.ms-battle-pick {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 1px solid var(--link);
+  color: var(--link);
+  font-size: 10px;
+  font-weight: normal;
+}
+@media (max-width: 600px) {
+  .ms-battle {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ms-battle-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-battle-list li + li {
+  margin-top: 4px;
+}
+.ms-battle-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: var(--cell-bg);
+  color: inherit;
+}
+.ms-battle-list a:hover {
+  text-decoration: none;
+  filter: brightness(0.97);
+}
+.ms-battle-list img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 1px solid var(--box-border);
+}
+.ms-battle-text {
+  flex: 1;
+  min-width: 0;
+}
+.ms-battle-status {
+  display: block;
+  font-weight: bold;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-vs-bar span {
+    transition: none;
+  }
+}

@@ -10,6 +10,7 @@ import { todaysTheme } from '@/lib/themes';
 const LINKS = [
     { href: '/', label: 'Home' },
     { href: '/create', label: 'Make a Meme' },
+    { href: '/compete', label: 'Human vs AI' },
     { href: '/profile', label: 'Profile' },
 ];
 

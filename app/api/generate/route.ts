@@ -1,16 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { GeminiError, HOUSE_RULES, generateJson } from '@/lib/gemini';
+import { countToday, json, readField, readImage, requireCaller, savePhoto } from '@/lib/serverApi';
 import { todaysTheme } from '@/lib/themes';
 
 export const maxDuration = 60;
 
 const DAILY_LIMIT = 10;
 const CAPTION_COUNT = 4;
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const MAX_CONTEXT_LENGTH = 140;
 const MAX_VOICE_LENGTH = 60;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function buildPrompt(themeTitle: string, themeBlurb: string, voice: string | null, context: string | null): string {
     const voiceLine = voice
@@ -29,42 +27,14 @@ Write exactly ${CAPTION_COUNT} different captions for this photo, each with a di
 Return JSON with a "captions" array of strings.`;
 }
 
-function json(body: unknown, status = 200) {
-    return Response.json(body, { status });
-}
-
 export async function POST(request: NextRequest) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!serviceKey || !process.env.GEMINI_API_KEY) {
-        return json({ error: 'Caption generation is not configured yet.' }, 500);
-    }
-
     // Only signed-in users can generate.
-    const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-    if (!token) {
-        return json({ error: 'You need to be signed in.' }, 401);
-    }
-
-    const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
-    const { data: userData, error: userError } = await authClient.auth.getUser(token);
-    if (userError || !userData.user) {
-        return json({ error: 'Your session expired. Sign in again.' }, 401);
-    }
-    const user = userData.user;
-
-    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const caller = await requireCaller(request);
+    if (caller instanceof Response) return caller;
+    const { user, admin } = caller;
 
     // Daily limit per user keeps us inside the free model quota.
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count } = await admin
-        .from('generations')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('created_at', since);
-    if ((count ?? 0) >= DAILY_LIMIT) {
+    if (await countToday(admin, 'generations', user.id) >= DAILY_LIMIT) {
         return json({ error: `You've hit today's limit of ${DAILY_LIMIT} uploads. Go vote on some captions!` }, 429);
     }
 
@@ -75,23 +45,13 @@ export async function POST(request: NextRequest) {
         return json({ error: 'Invalid upload.' }, 400);
     }
 
-    const image = form.get('image');
-    if (!(image instanceof File)) {
-        return json({ error: 'Pick a photo first.' }, 400);
-    }
-    if (!ALLOWED_TYPES.includes(image.type)) {
-        return json({ error: 'Photos must be JPEG, PNG, or WebP.' }, 400);
-    }
-    if (image.size > MAX_IMAGE_BYTES) {
-        return json({ error: 'That photo is too large.' }, 400);
+    const image = readImage(form);
+    if (typeof image === 'string') {
+        return json({ error: image }, 400);
     }
 
-    const field = (name: string, max: number) => {
-        const value = form.get(name);
-        return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
-    };
-    const context = field('context', MAX_CONTEXT_LENGTH);
-    const voice = field('voice', MAX_VOICE_LENGTH);
+    const context = readField(form, 'context', MAX_CONTEXT_LENGTH);
+    const voice = readField(form, 'voice', MAX_VOICE_LENGTH);
 
     const theme = todaysTheme();
     const prompt = buildPrompt(theme.title, theme.blurb, voice, context);
@@ -127,22 +87,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Save the photo, then the generation and its captions.
-    const ext = image.type === 'image/png' ? 'png' : image.type === 'image/webp' ? 'webp' : 'jpg';
-    const imagePath = `${user.id}/${Date.now()}.${ext}`;
-    const { error: uploadError } = await admin.storage
-        .from('memes')
-        .upload(imagePath, imageBytes, { contentType: image.type });
-    if (uploadError) {
-        console.error('Upload error:', uploadError);
+    const photo = await savePhoto(admin, user.id, image, imageBytes);
+    if (!photo) {
         return json({ error: 'Could not save your photo.' }, 500);
     }
-    const { data: urlData } = admin.storage.from('memes').getPublicUrl(imagePath);
+    const imagePath = photo.path;
 
     const { data: generation, error: generationError } = await admin
         .from('generations')
         .insert({
             user_id: user.id,
-            image_url: urlData.publicUrl,
+            image_url: photo.url,
             image_path: imagePath,
             theme: theme.slug,
             user_context: context,

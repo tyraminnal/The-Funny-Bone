@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { takeReturnTo } from '@/lib/returnTo';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '../../components/Box';
@@ -34,14 +35,14 @@ export default function SetupPage() {
             }
             setUser(authData.session.user);
 
-            // Returning users who already set up a profile go straight home.
+            // Returning users who already set up a profile go straight back to where they were headed.
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('first_name, last_name, avatar_url')
                 .eq('id', authData.session.user.id)
                 .maybeSingle();
             if (profile && (profile.first_name || profile.last_name || profile.avatar_url)) {
-                router.replace('/');
+                router.replace(takeReturnTo());
                 return;
             }
             setLoading(false);
@@ -138,7 +139,7 @@ export default function SetupPage() {
             }
 
             console.log('Profile saved successfully');
-            router.push('/');
+            router.push(takeReturnTo());
         } catch (err: any) {
             console.error('Save error:', err);
             setError(`Error: ${err.message}`);
