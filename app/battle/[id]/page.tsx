@@ -77,7 +77,7 @@ export default function BattlePage() {
     const totalVotes = battle ? battle.votes_a + battle.votes_b : 0;
     const shareText = mine
         ? 'I’m in a caption battle against an AI. Can you tell which caption is mine? 🧑 vs 🤖'
-        : 'Human vs AI: can you tell which caption the AI wrote? 🧑 vs 🤖';
+        : 'Battleground: can you tell which caption the AI wrote? 🧑 vs 🤖';
 
     return (
         <Shell>

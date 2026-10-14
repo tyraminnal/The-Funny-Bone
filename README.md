@@ -9,7 +9,7 @@ Upload a photo, get AI-written captions in four voices, and vote on the funniest
 - **Captions on the photo.** Each caption is drawn over the image meme-style; Prev / Next flips through them.
 - **Voting.** Signed-in users vote LOL or meh on each caption. Every vote inserts a new row in `caption_votes`; changing a vote deletes the old row and inserts a new one.
 - **Suggested pics.** No photo handy? Pick a classic meme template on Make a Meme and get captions for that instead.
-- **Human vs AI.** Write a caption for a pic and battle the AI, which writes its own without seeing yours. Everyone else votes blind on the funnier one, then sees who wrote which. A Humans vs AI scoreboard tracks who's winning.
+- **Battleground.** Write a caption for a pic and battle the AI, which writes its own without seeing yours. Everyone else votes blind on the funnier one, then sees who wrote which. A Humans vs AI scoreboard on the Battleground tracks who's winning.
 - **Share on socials.** Posts and battles have Share buttons (native share sheet on phones, plus X, Facebook, Reddit, WhatsApp, and Copy Link). Shared links need sign-in, and people land back on the shared page after signing in.
 - **Live points ranking.** Updates on its own as people post and vote, with ▲/▼ badges when ranks change. +2 per pic or battle posted, +1 per vote cast, +1 per LOL your captions get (−1 per meh), +1 per vote you win against the AI. Votes on your own posts don't count.
 - **Daily theme, Caption of the Day, and shareable post pages.** Plus Classic, Emo, and Glitter profile skins.

@@ -31,7 +31,7 @@ export default function BattleScoreboard({ showLink = false, refreshKey }: { sho
     const played = score ? score.my_wins + score.my_losses + score.my_ties : 0;
 
     return (
-        <Box title="🧑 Humans vs AI 🤖">
+        <Box title="⚔️ Battleground">
             {score === null ? (
                 <p className="ms-muted">Loading...</p>
             ) : (
