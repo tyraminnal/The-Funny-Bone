@@ -11,6 +11,7 @@ export default function AuthPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [loggedIn, setLoggedIn] = useState(false);
+    const [signupBlocked, setSignupBlocked] = useState(false);
 
     useProfileCheck(); // This checks and redirects if needed
 
@@ -20,6 +21,8 @@ export default function AuthPage() {
             if (data.session) {
                 setLoggedIn(true);
                 router.push('/auth/setup');
+            } else {
+                setSignupBlocked(new URLSearchParams(window.location.search).get('error') === 'signup');
             }
         };
         checkAuth();
@@ -50,6 +53,11 @@ export default function AuthPage() {
                 <div className="ms-col">
                     <Box title="Member Login">
                         <p className="mb-3">Sign in with your Google account to post pics and vote.</p>
+                        {signupBlocked && (
+                            <p className="mb-3 font-bold text-red-700" role="alert">
+                                That account can&apos;t sign up. The Funny Bone is open to school emails (like @columbia.edu). Ask an admin to whitelist yours.
+                            </p>
+                        )}
                         <p className="text-center">
                             <button onClick={handleGoogleSignIn} disabled={loading} className="ms-button ms-button-big">
                                 {loading ? 'Signing in...' : 'Sign in with Google »'}

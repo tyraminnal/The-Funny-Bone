@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { after } from 'next/server';
-import { HOUSE_RULES, generateJson } from '@/lib/gemini';
 import { MEME_TEMPLATES, templateById } from '@/lib/memeTemplates';
+import { failRequest, finishRequest, runChain } from '@/lib/pipeline';
 import { todaysTheme } from '@/lib/themes';
 
 export const maxDuration = 60;
@@ -19,22 +19,15 @@ interface MemeRow {
     created_at: string;
 }
 
-function buildPrompt(recentJokes: string[]): string {
+// Fill-ins for the meme chain's prompt template (prompt_chain_steps in the database).
+function promptVars(recentJokes: string[]): Record<string, string> {
     const theme = todaysTheme();
-    const templates = MEME_TEMPLATES.map((t) => `- ${t.id}: ${t.name} (${t.hint})`).join('\n');
-    const avoid = recentJokes.length ? `\nDon't repeat these recent jokes:\n${recentJokes.map((j) => `- ${j}`).join('\n')}\n` : '';
-
-    return `You make memes for The Funny Bone, a meme site for Columbia University students.
-The audience: college juniors who are chronically online, grew up in the Midwest, are new to New York City, live in the dorms, and explore the city on weekends.
-${HOUSE_RULES}
-
-Today's theme is "${theme.title}": ${theme.blurb}
-
-Make one meme about today's theme using exactly one of these templates (use its id):
-${templates}
-${avoid}
-The text goes on the image in classic white Impact letters. top_text can be empty. Keep each under 60 characters.
-Return JSON with "template_id", "top_text", and "bottom_text".`;
+    return {
+        theme_title: theme.title,
+        theme_blurb: theme.blurb,
+        templates: MEME_TEMPLATES.map((t) => `- ${t.id}: ${t.name} (${t.hint})`).join('\n'),
+        avoid: recentJokes.length ? `Don't repeat these recent jokes:\n${recentJokes.map((j) => `- ${j}`).join('\n')}` : '',
+    };
 }
 
 const MEME_COLUMNS = 'id, template_name, image_url, top_text, bottom_text, created_at';
@@ -42,10 +35,11 @@ const MEME_COLUMNS = 'id, template_name, image_url, top_text, bottom_text, creat
 // Asks Gemini for a new meme about today's theme and saves it.
 async function makeMeme(admin: SupabaseClient, recent: MemeRow[]): Promise<MemeRow | null> {
     try {
-        const prompt = buildPrompt(recent.map((m) => `${m.top_text} / ${m.bottom_text}`));
-        const { data: reply, model } = await generateJson<{ template_id?: string; top_text?: string; bottom_text?: string }>(
-            [{ text: prompt }],
-            {
+        const { data: reply, model, prompt, request } = await runChain<{ template_id?: string; top_text?: string; bottom_text?: string }>(admin, {
+            kind: 'meme',
+            userId: null,
+            vars: promptVars(recent.map((m) => `${m.top_text} / ${m.bottom_text}`)),
+            schema: {
                 type: 'OBJECT',
                 properties: {
                     template_id: { type: 'STRING', enum: MEME_TEMPLATES.map((t) => t.id) },
@@ -53,11 +47,14 @@ async function makeMeme(admin: SupabaseClient, recent: MemeRow[]): Promise<MemeR
                     bottom_text: { type: 'STRING' },
                 },
                 required: ['template_id', 'top_text', 'bottom_text'],
-            }
-        );
+            },
+        });
         const template = templateById(reply.template_id ?? '');
         const bottom = reply.bottom_text?.trim().slice(0, 80);
-        if (!template || !bottom) return null;
+        if (!template || !bottom) {
+            await failRequest(admin, request, 'Reply had an unknown template or no bottom text');
+            return null;
+        }
 
         const { data, error } = await admin
             .from('showcase_memes')
@@ -72,7 +69,12 @@ async function makeMeme(admin: SupabaseClient, recent: MemeRow[]): Promise<MemeR
             })
             .select(MEME_COLUMNS)
             .single();
-        if (error) console.error('Meme insert failed:', error);
+        if (error) {
+            console.error('Meme insert failed:', error);
+            await failRequest(admin, request, `Saving the meme failed: ${error.message}`);
+        } else {
+            await finishRequest(admin, request, { meme_id: data.id, image_url: template.url });
+        }
         return (data as MemeRow | null) ?? null;
     } catch (err) {
         console.error('Meme generation failed:', err);

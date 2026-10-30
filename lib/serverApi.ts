@@ -78,3 +78,11 @@ export async function savePhoto(admin: SupabaseClient, userId: string, image: Fi
     }
     return { path, url: admin.storage.from('memes').getPublicUrl(path).data.publicUrl };
 }
+
+// Adds a saved photo to the image library that Funny Bone HQ manages. Not fatal if it fails.
+export async function recordPhoto(admin: SupabaseClient, userId: string, photo: { path: string; url: string }) {
+    const { error } = await admin
+        .from('images')
+        .insert({ url: photo.url, storage_path: photo.path, source: 'upload', uploaded_by: userId });
+    if (error) console.error('Image record error:', error);
+}

@@ -6,6 +6,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
+    // Supabase sends us back with an error when the sign-up allowlist turns the account away.
+    if (searchParams.get('error')) {
+        return NextResponse.redirect(new URL('/auth?error=signup', request.url));
+    }
+
     if (code) {
         const cookieStore = await cookies();
         const supabase = createServerClient(

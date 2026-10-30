@@ -30,7 +30,9 @@ export default function SetupPage() {
         const checkAuth = async () => {
             const { data: authData } = await supabase.auth.getSession();
             if (!authData.session) {
-                router.push('/auth');
+                // An OAuth error lands here in the URL hash (e.g. the sign-up allowlist said no).
+                const failed = /[#&?]error=/.test(window.location.hash + window.location.search);
+                router.push(failed ? '/auth?error=signup' : '/auth');
                 return;
             }
             setUser(authData.session.user);

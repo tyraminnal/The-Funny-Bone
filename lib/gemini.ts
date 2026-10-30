@@ -1,12 +1,10 @@
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-
-// Tried in order when the main model is overloaded or rate limited.
-const FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-latest'];
+// Which models to call, in what order, lives in the llm_models table now (see lib/pipeline.ts).
+const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
 // Give up on a model that hasn't answered in this long and try the next one.
 const ATTEMPT_TIMEOUT_MS = 18_000;
 
-type Part = { text: string } | { inline_data: { mime_type: string; data: string } };
+export type Part = { text: string } | { inline_data: { mime_type: string; data: string } };
 
 export class GeminiError extends Error {
     status: number;
@@ -17,52 +15,51 @@ export class GeminiError extends Error {
     }
 }
 
-// Calls Gemini and returns its JSON reply parsed against the given schema,
-// plus the model that answered.
-export async function generateJson<T>(parts: Part[], responseSchema: object): Promise<{ data: T; model: string }> {
+export interface GeminiReply {
+    text: string;
+    inputTokens: number | null;
+    outputTokens: number | null;
+}
+
+// One call to one Gemini model. With a schema the reply is JSON text; without one it's plain text.
+export async function callGemini(opts: {
+    model: string;
+    baseUrl?: string | null;
+    parts: Part[];
+    temperature: number;
+    schema?: object | null;
+}): Promise<GeminiReply> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new GeminiError(500, 'GEMINI_API_KEY is not set');
 
-    const models = [GEMINI_MODEL, ...FALLBACK_MODELS.filter((m) => m !== GEMINI_MODEL)];
-    let lastError = new GeminiError(500, 'No models tried');
-
-    for (const model of models) {
-        let response: Response;
-        try {
-            response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts }],
-                        generationConfig: { temperature: 1.0, responseMimeType: 'application/json', responseSchema },
-                    }),
-                    signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
-                }
-            );
-        } catch (err) {
-            lastError = new GeminiError(504, `${model}: ${err instanceof Error ? err.message : 'request failed'}`);
-            continue;
-        }
-
-        if (!response.ok) {
-            lastError = new GeminiError(response.status, `${model}: ${await response.text()}`);
-            // Busy or out of quota: try the next model. Anything else is a real error.
-            if (response.status === 429 || response.status >= 500 || response.status === 404) continue;
-            throw lastError;
-        }
-
-        const data = await response.json();
-        const text: string = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-        try {
-            return { data: JSON.parse(text) as T, model };
-        } catch {
-            throw new GeminiError(422, `Unparseable reply from ${model}: ${JSON.stringify(data).slice(0, 500)}`);
-        }
+    let response: Response;
+    try {
+        response = await fetch(`${opts.baseUrl || DEFAULT_BASE_URL}/models/${opts.model}:generateContent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: opts.parts }],
+                generationConfig: {
+                    temperature: opts.temperature,
+                    ...(opts.schema ? { responseMimeType: 'application/json', responseSchema: opts.schema } : {}),
+                },
+            }),
+            signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        });
+    } catch (err) {
+        throw new GeminiError(504, err instanceof Error ? err.message : 'request failed');
     }
 
-    throw lastError;
+    if (!response.ok) {
+        throw new GeminiError(response.status, (await response.text()).slice(0, 2000));
+    }
+
+    const data = await response.json();
+    return {
+        text: data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '',
+        inputTokens: data?.usageMetadata?.promptTokenCount ?? null,
+        outputTokens: data?.usageMetadata?.candidatesTokenCount ?? null,
+    };
 }
 
 export const HOUSE_RULES = `Rules:

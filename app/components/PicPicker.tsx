@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { MEME_TEMPLATES, type MemeTemplate } from '@/lib/memeTemplates';
+import { supabase } from '@/lib/supabase';
+
+// Pics an admin marked as suggested in Funny Bone HQ. Their ids start with "img-".
+const LIBRARY_PREFIX = 'img-';
 
 const MAX_DIMENSION = 1280;
 const SUGGESTIONS_SHOWN = 8;
@@ -38,11 +42,29 @@ export default function PicPicker({ disabled, onImage, onError }: {
     const [suggestionPage, setSuggestionPage] = useState(0);
     const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
     const [loadingTemplate, setLoadingTemplate] = useState<string | null>(null);
+    const [libraryPics, setLibraryPics] = useState<MemeTemplate[]>([]);
 
-    const suggestionPages = Math.ceil(MEME_TEMPLATES.length / SUGGESTIONS_SHOWN);
-    const suggestions = MEME_TEMPLATES.slice(suggestionPage * SUGGESTIONS_SHOWN, (suggestionPage + 1) * SUGGESTIONS_SHOWN);
+    const allSuggestions = [...libraryPics, ...MEME_TEMPLATES];
+    const suggestionPages = Math.ceil(allSuggestions.length / SUGGESTIONS_SHOWN);
+    const suggestions = allSuggestions.slice(suggestionPage * SUGGESTIONS_SHOWN, (suggestionPage + 1) * SUGGESTIONS_SHOWN);
 
     useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
+    useEffect(() => {
+        supabase
+            .from('images')
+            .select('id, url, description')
+            .eq('is_suggested', true)
+            .order('created_at', { ascending: false })
+            .then(({ data }) => {
+                setLibraryPics((data ?? []).map((img) => ({
+                    id: `${LIBRARY_PREFIX}${img.id}`,
+                    name: img.description || 'Suggested pic',
+                    url: img.url,
+                    hint: img.description ?? '',
+                })));
+            });
+    }, []);
 
     const showPhoto = async (file: Blob) => {
         const resized = await resizeImage(file);
@@ -62,12 +84,15 @@ export default function PicPicker({ disabled, onImage, onError }: {
         }
     };
 
-    // Suggested pics come through our own /api/template-image so the canvas resize works.
+    // Classic templates come through our own /api/template-image so the canvas resize works.
+    // Library pics live in our Supabase bucket, which already allows cross-origin reads.
     const pickTemplate = async (template: MemeTemplate) => {
         onError('');
         setLoadingTemplate(template.id);
         try {
-            const response = await fetch(`/api/template-image?id=${encodeURIComponent(template.id)}`);
+            const response = await fetch(
+                template.id.startsWith(LIBRARY_PREFIX) ? template.url : `/api/template-image?id=${encodeURIComponent(template.id)}`
+            );
             if (!response.ok) throw new Error('template fetch failed');
             await showPhoto(await response.blob());
             setPickedTemplate(template.id);
